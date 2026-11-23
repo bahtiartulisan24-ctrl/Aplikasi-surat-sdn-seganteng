@@ -1,0 +1,2852 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Surat SD Negeri Seganteng | Sistem Administrasi Persuratan</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Plus Jakarta Sans untuk UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome untuk Ikon UI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- QRCode.js untuk Generator QR Code Verifikasi TTE -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- SheetJS (XLSX) untuk Impor & Ekspor Excel/CSV -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        /* Tipografi & Layout Kertas Surat Dinas Resmi */
+        .paper-sheet {
+            font-family: "Times New Roman", Times, serif;
+            background: #ffffff;
+            color: #000000;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            margin: 0 auto;
+            box-sizing: border-box;
+            position: relative;
+            transition: all 0.25s ease;
+        }
+
+        /* Ukuran Kertas Standar Indonesia: A4 & F4 (Folio) */
+        .paper-a4 {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 15mm 20mm 18mm 22mm;
+        }
+
+        .paper-f4 {
+            width: 215mm;
+            min-height: 330mm;
+            padding: 15mm 20mm 18mm 22mm;
+        }
+
+        /* Garis Pembatas Bawah Kop Surat Sesuai Referensi Gambar */
+        .kop-divider {
+            border-top: 2.5pt solid #000000;
+            border-bottom: 0.75pt solid #000000;
+            height: 2.5px;
+            margin-top: 6px;
+            margin-bottom: 14px;
+            width: 100%;
+        }
+
+        /* Tabel di dalam Isi Surat */
+        .surat-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 11.5pt;
+        }
+        .surat-table th, .surat-table td {
+            border: 1px solid #000000;
+            padding: 5px 8px;
+            vertical-align: top;
+        }
+        .surat-table th {
+            background-color: #f3f4f6;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* Custom Scrollbar untuk Panel Editor */
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* ATURAN CETAK PRESISI (PRINT MEDIA) */
+        @media print {
+            body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            #main-workspace {
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                height: auto !important;
+            }
+            #preview-container {
+                width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                background: transparent !important;
+                overflow: visible !important;
+                display: block !important;
+            }
+            .paper-sheet {
+                box-shadow: none !important;
+                margin: 0 !important;
+                width: 100% !important;
+                min-height: auto !important;
+                padding: 0 !important;
+            }
+            @page {
+                margin: 14mm 18mm 15mm 20mm;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- Notifikasi Toast Melayang (Pengganti alert) -->
+    <div id="toast-container" class="no-print fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- HEADER NAVIGASI UTAMA -->
+    <header class="no-print bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white shadow-md sticky top-0 z-40 border-b border-blue-800/40">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand Sekolah -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-400/30 flex items-center justify-center shadow-inner">
+                    <i class="fa-solid fa-envelope-open-text text-blue-300 text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-base sm:text-lg tracking-tight leading-none">E-SURAT SDN SEGANTENG</h1>
+                        <span class="hidden sm:inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">TTE & QR Ready</span>
+                    </div>
+                    <p class="text-xs text-slate-300 mt-0.5">Kec. Batukliang Utara, Kab. Lombok Tengah</p>
+                </div>
+            </div>
+
+            <!-- Menu Tab Navigasi -->
+            <nav class="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700/70 overflow-x-auto max-w-full">
+                <button onclick="switchTab('buat-surat')" id="nav-buat-surat" class="nav-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-2 bg-blue-600 text-white shadow-sm whitespace-nowrap">
+                    <i class="fa-solid fa-file-pen"></i>
+                    <span>Buat Surat Keluar</span>
+                </button>
+                <button onclick="switchTab('agenda')" id="nav-agenda" class="nav-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/60 whitespace-nowrap">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                    <span>Buku Agenda</span>
+                    <span id="badge-total-surat" class="px-1.5 py-0.2 text-[11px] rounded-full bg-slate-700 text-blue-300 font-semibold">0</span>
+                </button>
+                <button onclick="switchTab('verifikasi')" id="nav-verifikasi" class="nav-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/60 whitespace-nowrap">
+                    <i class="fa-solid fa-qrcode"></i>
+                    <span>Cek Keaslian QR</span>
+                </button>
+                <button onclick="switchTab('pengaturan')" id="nav-pengaturan" class="nav-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/60 whitespace-nowrap">
+                    <i class="fa-solid fa-gear"></i>
+                    <span>Kop & Pengaturan</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- KONTEN UTAMA -->
+    <main id="main-workspace" class="max-w-[1600px] mx-auto">
+
+        <!-- ========================================================= -->
+        <!-- TAB 1: BUAT SURAT KELUAR & LIVE PREVIEW A4/F4             -->
+        <!-- ========================================================= -->
+        <section id="tab-buat-surat" class="tab-content flex flex-col lg:flex-row min-h-[calc(100vh-66px)]">
+            
+            <!-- PANEL KIRI: FORM EDITOR SURAT (NO-PRINT) -->
+            <div class="no-print w-full lg:w-[460px] xl:w-[500px] bg-white border-r border-slate-200 p-4 sm:p-5 lg:h-[calc(100vh-66px)] lg:overflow-y-auto flex-shrink-0 space-y-5">
+                
+                <!-- Aksi Cepat & Pilihan Template -->
+                <div class="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-3.5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> Template Surat Cepat
+                        </label>
+                        <button onclick="resetFormSuratBaru()" class="text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1">
+                            <i class="fa-solid fa-rotate-right"></i> Surat Baru
+                        </button>
+                    </div>
+                    <select id="template-selector" onchange="applyTemplate(this.value)" class="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <optgroup label="Surat Keterangan & Kesiswaan">
+                            <option value="ket_aktif">1. Surat Keterangan Siswa Aktif (PIP/Beasiswa)</option>
+                            <option value="ket_pernah_sekolah">2. Surat Keterangan Pernah Sekolah (Alumni)</option>
+                            <option value="pengantar_perbaikan_ijazah">3. Surat Pengantar Perbaikan / Kesalahan Ijazah</option>
+                            <option value="skl_sementara">4. Surat Keterangan Lulus (SKL) Sementara</option>
+                            <option value="ket_kelakuan_baik">5. Surat Keterangan Kelakuan Baik Siswa</option>
+                            <option value="ket_pindah">6. Surat Keterangan Pindah Sekolah (Mutasi Keluar)</option>
+                            <option value="terima_pindah">7. Surat Keterangan Bersedia Menerima Siswa Pindahan</option>
+                        </optgroup>
+                        <optgroup label="Kepegawaian, Pernyataan & Rekomendasi">
+                            <option value="tugas">8. Surat Tugas Guru / Tenaga Kependidikan</option>
+                            <option value="pernyataan_sptjm">9. Surat Pernyataan Kepala Sekolah (SPTJM / Keabsahan)</option>
+                            <option value="pernyataan_spmt">10. Surat Pernyataan Melaksanakan Tugas (SPMT)</option>
+                            <option value="rekomendasi">11. Surat Rekomendasi Kepala Sekolah</option>
+                            <option value="dispensasi">12. Surat Permohonan Izin / Dispensasi</option>
+                        </optgroup>
+                        <optgroup label="Korespondensi Umum & Wali Murid">
+                            <option value="undangan" selected>13. Surat Undangan Rapat (Komite / Wali Murid / Guru)</option>
+                            <option value="pemberitahuan">14. Surat Pemberitahuan / Edaran Wali Murid</option>
+                            <option value="panggilan_ortu">15. Surat Panggilan Orang Tua / Wali Murid</option>
+                            <option value="surat_kuasa">16. Surat Kuasa Pengambilan Dokumen / Dana PIP</option>
+                            <option value="custom">17. Surat Bebas / Custom (Format Kosong)</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <!-- Pilihan Ukuran Kertas & Mode Layout -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Ukuran Kertas Cetak</label>
+                        <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                            <button type="button" onclick="setPaperSize('A4')" id="btn-paper-a4" class="py-1.5 text-xs font-bold rounded-lg bg-white text-blue-700 shadow-sm transition">A4</button>
+                            <button type="button" onclick="setPaperSize('F4')" id="btn-paper-f4" class="py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition">F4 (Folio)</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Format Kepala Surat</label>
+                        <select id="input-format-header" onchange="updatePreview()" class="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="formal">Nomor & Tujuan (Undangan/Umum)</option>
+                            <option value="judul_tengah">Judul Tengah (Surat Tugas / Ket.)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Bagian 1: Identitas & Nomor Surat -->
+                <div class="space-y-3 border-t border-slate-100 pt-4">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <i class="fa-solid fa-hashtag text-slate-400"></i> Identitas & Nomor Surat
+                    </h3>
+                    
+                    <div id="judul-tengah-group" class="hidden">
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Judul Surat (Kapital & Bergaris Bawah)</label>
+                        <input type="text" id="input-judul-surat" oninput="updatePreview()" value="SURAT TUGAS" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Nomor Surat</label>
+                            <div class="flex gap-1">
+                                <input type="text" id="input-nomor" oninput="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button type="button" onclick="generateAutoNumber()" title="Generate Nomor Urut Otomatis" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-300 text-xs transition">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="field-lampiran">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Lampiran</label>
+                            <input type="text" id="input-lampiran" oninput="updatePreview()" value="-" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div id="field-perihal-tujuan" class="space-y-2.5">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Perihal / Hal</label>
+                            <input type="text" id="input-perihal" oninput="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-700 mb-1">Kepada Yth. (Tujuan Surat)</label>
+                                <textarea id="input-tujuan" rows="2" oninput="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-700 mb-1">Di Tempat / Alamat Tujuan</label>
+                                <input type="text" id="input-tempat-tujuan" oninput="updatePreview()" value="Tempat" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bagian 2: Redaksi Isi Surat -->
+                <div class="space-y-3 border-t border-slate-100 pt-4">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <i class="fa-solid fa-align-left text-slate-400"></i> Redaksi & Isi Surat
+                    </h3>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Paragraf Pembuka</label>
+                        <textarea id="input-pembuka" rows="3" oninput="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+
+                    <!-- Detail Rincian (Key-Value) -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-semibold text-slate-700">Rincian Data (Hari/Tgl/Waktu/Identitas)</label>
+                            <button type="button" onclick="addDetailRow()" class="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                                <i class="fa-solid fa-plus-circle"></i> Tambah Baris
+                            </button>
+                        </div>
+                        <div id="detail-rows-container" class="space-y-1.5">
+                            <!-- Diisi via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Opsional Tabel Data (Misal Daftar Guru Ditugaskan / Siswa) -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                                <input type="checkbox" id="toggle-tabel-data" onchange="updatePreview()" class="rounded text-blue-600 focus:ring-blue-500">
+                                <span>Sertakan Tabel Daftar (Guru / Siswa)</span>
+                            </label>
+                            <button type="button" onclick="addTableRow()" class="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Baris Tabel
+                            </button>
+                        </div>
+                        <div id="tabel-editor-wrapper" class="hidden space-y-2 pt-1">
+                            <div class="grid grid-cols-3 gap-1 text-[11px] font-semibold text-slate-500">
+                                <input type="text" id="th-col-1" value="Nama Lengkap" oninput="updatePreview()" class="border border-slate-300 rounded px-1.5 py-1 bg-white">
+                                <input type="text" id="th-col-2" value="NIP / NISN" oninput="updatePreview()" class="border border-slate-300 rounded px-1.5 py-1 bg-white">
+                                <input type="text" id="th-col-3" value="Jabatan / Kelas" oninput="updatePreview()" class="border border-slate-300 rounded px-1.5 py-1 bg-white">
+                            </div>
+                            <div id="table-rows-container" class="space-y-1.5"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Paragraf Penutup</label>
+                        <textarea id="input-penutup" rows="3" oninput="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+
+                <!-- Bagian 3: Pengesahan, TTE & QR Code Kepala Sekolah -->
+                <div class="space-y-3 border-t border-slate-100 pt-4">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <i class="fa-solid fa-signature text-slate-400"></i> Tanda Tangan Digital (TTE) & QR Code
+                    </h3>
+
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Tempat Ditetapkan</label>
+                            <input type="text" id="input-tempat-surat" value="Seganteng" oninput="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Tanggal Surat</label>
+                            <input type="date" id="input-tanggal-surat" onchange="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <!-- Pilihan Mode Pengesahan -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Mode Pengesahan & QR Code Kepala Sekolah</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="cursor-pointer border rounded-xl p-2.5 flex items-start gap-2 hover:bg-blue-50/50 transition has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="ttd_mode" value="qr_only" checked onchange="updatePreview()" class="mt-0.5 text-blue-600">
+                                <div>
+                                    <div class="text-xs font-bold text-slate-800">QR Otomatis Sistem</div>
+                                    <div class="text-[11px] text-slate-500">TTE terverifikasi otomatis</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer border rounded-xl p-2.5 flex items-start gap-2 hover:bg-blue-50/50 transition has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="ttd_mode" value="qr_kepsek_upload" onchange="updatePreview()" class="mt-0.5 text-blue-600">
+                                <div>
+                                    <div class="text-xs font-bold text-slate-800">Gambar QR Kepsek</div>
+                                    <div class="text-[11px] text-slate-500">Unggah file QR Kepala Sekolah</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer border rounded-xl p-2.5 flex items-start gap-2 hover:bg-blue-50/50 transition has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="ttd_mode" value="qr_custom_text" onchange="updatePreview()" class="mt-0.5 text-blue-600">
+                                <div>
+                                    <div class="text-xs font-bold text-slate-800">Input Teks/Link QR</div>
+                                    <div class="text-[11px] text-slate-500">Generate dari isi teks/URL</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer border rounded-xl p-2.5 flex items-start gap-2 hover:bg-blue-50/50 transition has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="ttd_mode" value="qr_plus_ttd" onchange="updatePreview()" class="mt-0.5 text-blue-600">
+                                <div>
+                                    <div class="text-xs font-bold text-slate-800">QR + TTD & Stempel</div>
+                                    <div class="text-[11px] text-slate-500">Kombinasi QR & Stempel</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer border rounded-xl p-2.5 flex items-start gap-2 hover:bg-blue-50/50 transition has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="ttd_mode" value="ttd_image" onchange="updatePreview()" class="mt-0.5 text-blue-600">
+                                <div>
+                                    <div class="text-xs font-bold text-slate-800">TTD & Stempel Saja</div>
+                                    <div class="text-[11px] text-slate-500">Gambar/Canvas TTD</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer border rounded-xl p-2.5 flex items-start gap-2 hover:bg-blue-50/50 transition has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="ttd_mode" value="manual" onchange="updatePreview()" class="mt-0.5 text-blue-600">
+                                <div>
+                                    <div class="text-xs font-bold text-slate-800">Kosong (TTD Basah)</div>
+                                    <div class="text-[11px] text-slate-500">Cetak lalu tanda tangan</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Panel Inputan Khusus QR Code Kepala Sekolah (Dinamis sesuai mode) -->
+                    <div id="panel-input-qr-kepsek" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <i class="fa-solid fa-qrcode text-blue-600"></i> Konfigurasi QR Code Kepala Sekolah
+                            </span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] text-slate-500">Ukuran:</span>
+                                <input type="range" id="input-qr-size" min="54" max="115" value="72" oninput="updateQrSizeLabel(this.value); updatePreview()" class="w-16 accent-blue-600">
+                                <span id="label-qr-size" class="text-[11px] font-mono font-semibold text-slate-700">72px</span>
+                            </div>
+                        </div>
+
+                        <!-- Sub-input 1: Upload Gambar QR Kepala Sekolah -->
+                        <div id="subinput-qr-upload" class="hidden space-y-2 pt-1 border-t border-slate-200">
+                            <div class="flex items-center gap-2.5">
+                                <label class="cursor-pointer flex-1 bg-white hover:bg-blue-50 text-blue-800 border border-blue-300 border-dashed px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-cloud-arrow-up text-blue-600"></i>
+                                    <span>Pilih Gambar QR Code Kepala Sekolah (PNG/JPG)</span>
+                                    <input type="file" accept="image/*" onchange="handleImageUpload(event, 'qrKepsekImage')" class="hidden">
+                                </label>
+                                <button type="button" onclick="clearQrKepsekData()" title="Hapus Gambar QR" class="px-2.5 py-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 text-xs">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                            <p class="text-[11px] text-slate-500">Gambar QR Code Kepala Sekolah otomatis tersimpan permanen untuk surat berikutnya.</p>
+                        </div>
+
+                        <!-- Sub-input 2: Input Teks / Link Custom QR -->
+                        <div id="subinput-qr-custom" class="hidden space-y-1.5 pt-1 border-t border-slate-200">
+                            <label class="block text-[11px] font-semibold text-slate-700">Teks / Tautan (URL) Isi QR Code Kepala Sekolah:</label>
+                            <textarea id="input-qr-custom-text" rows="2" oninput="updatePreview()" placeholder="Contoh: Ditandatangani sah oleh H. AHMAD RIADI, S.Pd. (NIP. 197205141998031006) - Kepala SD Negeri Seganteng" class="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+
+                        <!-- Opsi Label Pendamping QR & Stempel -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Keterangan Samping QR</label>
+                                <input type="text" id="input-qr-caption" value="Ditandatangani secara elektronik oleh:" oninput="updatePreview()" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs">
+                            </div>
+                            <div class="flex items-end pb-1">
+                                <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                                    <input type="checkbox" id="toggle-stempel-with-qr" onchange="updatePreview()" class="rounded text-blue-600">
+                                    <span>Tampilkan Stempel Sekolah</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kode Verifikasi Unik -->
+                    <div class="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between">
+                        <div>
+                            <span class="text-[11px] font-semibold text-emerald-800 block">Kode Verifikasi Elektronik:</span>
+                            <span id="display-kode-verifikasi" class="font-mono text-xs font-bold text-emerald-950">SGT-2026-8841</span>
+                        </div>
+                        <button type="button" onclick="regenerateVerificationCode()" class="text-xs bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-lg font-medium transition">
+                            <i class="fa-solid fa-shuffle"></i> Acak Kode
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Nama Kepala Sekolah</label>
+                            <input type="text" id="input-kepsek-nama" oninput="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">NIP Kepala Sekolah</label>
+                            <input type="text" id="input-kepsek-nip" oninput="updatePreview()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tombol Aksi Utama (Simpan ke Agenda, Download Word & Cetak) -->
+                <div class="sticky bottom-0 bg-white pt-3 pb-2 border-t border-slate-200 flex flex-wrap gap-2">
+                    <button type="button" onclick="saveSuratToAgenda()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-3 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 text-xs sm:text-sm">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span id="btn-save-label">Simpan</span>
+                    </button>
+                    <button type="button" onclick="downloadSuratWord()" class="flex-1 bg-indigo-700 hover:bg-indigo-800 text-white font-semibold py-2.5 px-3 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 text-xs sm:text-sm">
+                        <i class="fa-solid fa-file-word"></i>
+                        <span>Word (.doc)</span>
+                    </button>
+                    <button type="button" onclick="printDokumen()" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-3.5 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 text-xs sm:text-sm">
+                        <i class="fa-solid fa-print"></i>
+                        <span>Cetak</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PANEL KANAN: LIVE PREVIEW KERTAS SURAT RESMI -->
+            <div id="preview-container" class="flex-1 bg-slate-200/80 p-4 sm:p-8 lg:h-[calc(100vh-66px)] lg:overflow-y-auto flex flex-col items-center">
+                
+                <!-- Toolbar Mini di atas Kertas -->
+                <div class="no-print w-full max-w-[215mm] mb-3 flex flex-wrap items-center justify-between gap-2 bg-white/90 backdrop-blur px-4 py-2 rounded-xl border border-slate-300/80 shadow-sm text-xs">
+                    <div class="flex items-center gap-2 text-slate-600">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        <span>Pratinjau Langsung Ukuran <strong id="label-paper-size" class="text-slate-900">A4 (210 x 297 mm)</strong></span>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <button onclick="switchTab('pengaturan')" class="text-blue-700 hover:underline font-medium">
+                            <i class="fa-solid fa-image"></i> Ganti Logo Kop / TTD
+                        </button>
+                        <span class="text-slate-300">|</span>
+                        <button onclick="downloadSuratWord()" class="text-indigo-700 hover:text-indigo-900 font-semibold flex items-center gap-1">
+                            <i class="fa-solid fa-file-word"></i> Download Word
+                        </button>
+                        <span class="text-slate-300">|</span>
+                        <button onclick="printDokumen()" class="text-slate-800 hover:text-blue-700 font-semibold flex items-center gap-1">
+                            <i class="fa-solid fa-print"></i> Print / Save PDF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LEMBAR KERTAS SURAT RESMI -->
+                <div id="surat-paper" class="paper-sheet paper-a4">
+                    
+                    <!-- KOP SURAT RESMI SESUAI REFERENSI GAMBAR -->
+                    <header class="w-full">
+                        <div class="flex items-center justify-between gap-3">
+                            <!-- Logo Kiri: Kabupaten Lombok Tengah -->
+                            <div class="w-[74px] h-[82px] flex-shrink-0 flex items-center justify-center">
+                                <img id="kop-logo-kiri" src="" alt="Logo Lombok Tengah" class="max-w-full max-h-full object-contain">
+                            </div>
+
+                            <!-- Teks Tengah Kop Surat -->
+                            <div class="flex-1 text-center leading-tight">
+                                <div style="font-size: 14pt; font-weight: bold; letter-spacing: 0.3px;">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
+                                <div style="font-size: 14pt; font-weight: bold; letter-spacing: 0.3px; margin-top: 1px;">DINAS PENDIDIKAN DAN KEBUDAYAAN</div>
+                                <div style="font-size: 16pt; font-weight: bold; letter-spacing: 0.4px; margin-top: 2px;">SEKOLAH DASAR NEGERI SEGANTENG</div>
+                                <div style="font-size: 10.5pt; margin-top: 3px;">
+                                    Alamat: Jln. Pariwisata Aik Bukaq Kec. Batukliang Utara Kab. Lombok Tengah Kode Pos. 83555
+                                </div>
+                                <div style="font-size: 10.5pt; margin-top: 3px;" class="flex items-center justify-center flex-wrap gap-x-3 gap-y-1">
+                                    <!-- Instagram -->
+                                    <span class="inline-flex items-center gap-1 italic">
+                                        <svg class="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="#000000">
+                                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                                        </svg>
+                                        <span>sdnsegatengofficial</span>
+                                    </span>
+                                    <!-- Facebook -->
+                                    <span class="inline-flex items-center gap-1 italic">
+                                        <svg class="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="#000000">
+                                            <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm3 8h-1.35c-.538 0-.65.221-.65.778v1.222h2l-.209 2h-1.791v7h-3v-7h-2v-2h2v-2.308c0-1.769.931-2.692 3.029-2.692h1.971v3z"/>
+                                        </svg>
+                                        <span>sdnseganteng</span>
+                                    </span>
+                                    <!-- Email -->
+                                    <span class="inline-flex items-center gap-1 italic">
+                                        <svg class="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="#000000">
+                                            <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6 17h-12v-8.5l6 4.5 6-4.5v8.5zm-6-6.25l-6-4.5h12l-6 4.5z"/>
+                                        </svg>
+                                        <span style="color: #0000FF; text-decoration: underline;">sdnseganteng3@gmail.com</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Logo Kanan: SD Negeri Seganteng -->
+                            <div class="w-[74px] h-[82px] flex-shrink-0 flex items-center justify-center">
+                                <img id="kop-logo-kanan" src="" alt="Logo SDN Seganteng" class="max-w-full max-h-full object-contain">
+                            </div>
+                        </div>
+
+                        <!-- Garis Ganda Kop Surat -->
+                        <div class="kop-divider"></div>
+                    </header>
+
+                    <!-- AREA KEPALA SURAT (MODE 1: NOMOR & TUJUAN) -->
+                    <div id="preview-header-formal" style="font-size: 12pt; line-height: 1.4;">
+                        <div class="flex justify-between items-start gap-4">
+                            <table style="border-collapse: collapse;">
+                                <tr>
+                                    <td style="width: 85px; vertical-align: top;">Nomor</td>
+                                    <td style="width: 14px; vertical-align: top;">:</td>
+                                    <td id="prev-nomor" style="vertical-align: top;">421.2/001/SDN-SGT/XI/2026</td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align: top;">Lampiran</td>
+                                    <td style="vertical-align: top;">:</td>
+                                    <td id="prev-lampiran" style="vertical-align: top;">-</td>
+                                </tr>
+                                <tr>
+                                    <td style="vertical-align: top;">Perihal</td>
+                                    <td style="vertical-align: top;">:</td>
+                                    <td id="prev-perihal" style="vertical-align: top; font-weight: bold;">Undangan Rapat Wali Murid</td>
+                                </tr>
+                            </table>
+
+                            <div style="width: 240px; flex-shrink: 0;">
+                                <div>Kepada</div>
+                                <div>Yth. <span id="prev-tujuan" style="white-space: pre-line;">Bapak/Ibu Orang Tua/Wali Murid</span></div>
+                                <div>di -</div>
+                                <div style="padding-left: 24px;" id="prev-tempat-tujuan">Tempat</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AREA KEPALA SURAT (MODE 2: JUDUL TENGAH / SURAT TUGAS / KETERANGAN) -->
+                    <div id="preview-header-judul" class="hidden text-center my-3" style="font-size: 12pt; line-height: 1.35;">
+                        <div id="prev-judul-surat" style="font-size: 13.5pt; font-weight: bold; text-decoration: underline; letter-spacing: 0.5px;">SURAT TUGAS</div>
+                        <div>Nomor : <span id="prev-nomor-judul">421.2/001/SDN-SGT/XI/2026</span></div>
+                    </div>
+
+                    <!-- ISI UTAMA SURAT -->
+                    <div class="mt-5" style="font-size: 12pt; line-height: 1.5; text-align: justify;">
+                        
+                        <!-- Paragraf Pembuka -->
+                        <p id="prev-pembuka" style="text-indent: 36px; margin-bottom: 10px; white-space: pre-line;"></p>
+
+                        <!-- Rincian Data (Key-Value) -->
+                        <table id="prev-detail-table" style="border-collapse: collapse; margin: 10px 0 12px 36px; width: calc(100% - 36px); font-size: 12pt;">
+                            <tbody id="prev-detail-tbody"></tbody>
+                        </table>
+
+                        <!-- Tabel Daftar (Opsional) -->
+                        <div id="prev-data-table-wrapper" class="hidden my-3">
+                            <table class="surat-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;">No.</th>
+                                        <th id="prev-th-1">Nama Lengkap</th>
+                                        <th id="prev-th-2">NIP / NISN</th>
+                                        <th id="prev-th-3">Jabatan / Kelas</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prev-table-tbody"></tbody>
+                            </table>
+                        </div>
+
+                        <!-- Paragraf Penutup -->
+                        <p id="prev-penutup" style="text-indent: 36px; margin-top: 10px; white-space: pre-line;"></p>
+                    </div>
+
+                    <!-- AREA TANDA TANGAN KEPALA SEKOLAH & TTE / QR CODE -->
+                    <div class="mt-8 flex justify-end" style="font-size: 12pt; line-height: 1.35;">
+                        <div style="width: 295px; position: relative;">
+                            <div>
+                                <span id="prev-tempat-surat">Seganteng</span>, <span id="prev-tanggal-surat">23 November 2026</span>
+                            </div>
+                            <div>Kepala Sekolah,</div>
+
+                            <!-- Area Visual Tanda Tangan / QR Code / Stempel -->
+                            <div id="prev-signature-box" class="my-2 min-h-[88px] flex items-center relative">
+                                
+                                <!-- Mode QR Code / Kombinasi -->
+                                <div id="prev-qr-wrapper" class="flex items-center gap-2.5 relative z-10">
+                                    <!-- QR Generated Canvas -->
+                                    <div id="qrcode-canvas" class="p-1 bg-white border border-slate-300 flex-shrink-0"></div>
+                                    <!-- QR Uploaded Image Kepala Sekolah -->
+                                    <div id="qrcode-uploaded-box" class="hidden p-1 bg-white border border-slate-300 flex-shrink-0 flex items-center justify-center">
+                                        <img id="prev-img-qr-kepsek" src="" alt="QR Kepala Sekolah" class="object-contain" style="width: 72px; height: 72px;">
+                                    </div>
+                                    <div id="prev-qr-text-info" style="font-family: 'Inter', sans-serif; font-size: 7.5pt; line-height: 1.25; color: #1e293b;">
+                                        <div id="prev-qr-caption-title" class="font-bold text-blue-900">Ditandatangani secara elektronik oleh:</div>
+                                        <div>Kepala SD Negeri Seganteng</div>
+                                        <div class="mt-0.5 font-mono text-[7pt] text-slate-600">Kode: <span id="prev-qr-code-text">SGT-2026-8841</span></div>
+                                    </div>
+                                </div>
+
+                                <!-- Overlay Gambar TTD & Stempel (Jika Mode TTD Image atau Kombinasi) -->
+                                <div id="prev-ttd-stempel-wrapper" class="hidden relative h-[85px] w-[220px] flex items-center justify-center">
+                                    <img id="prev-img-stempel" src="" alt="" class="hidden absolute left-1 top-0 h-[82px] w-[82px] object-contain opacity-85 pointer-events-none">
+                                    <img id="prev-img-ttd" src="" alt="" class="hidden relative z-10 max-h-[80px] max-w-[180px] object-contain">
+                                </div>
+
+                                <!-- Overlay Stempel Khusus saat Mode QR -->
+                                <img id="prev-qr-overlay-stempel" src="" alt="" class="hidden absolute left-10 -top-1 h-[84px] w-[84px] object-contain opacity-80 pointer-events-none z-20">
+
+                            </div>
+
+                            <!-- Nama & NIP Kepala Sekolah -->
+                            <div style="font-weight: bold; text-decoration: underline;" id="prev-kepsek-nama">H. AHMAD RIADI, S.Pd.</div>
+                            <div>NIP. <span id="prev-kepsek-nip">19720514 199803 1 006</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Verifikasi Elektronik Tipis di Bawah Kertas (Hanya muncul jika mode QR aktif) -->
+                    <div id="prev-tte-footer" class="mt-8 pt-2 border-t border-slate-300 flex items-center justify-between text-slate-600" style="font-family: 'Inter', sans-serif; font-size: 7.5pt;">
+                        <span>Dokumen ini telah ditandatangani secara elektronik menggunakan sistem E-Surat SD Negeri Seganteng.</span>
+                        <span class="font-mono font-semibold">ID: <span id="prev-footer-code">SGT-2026-8841</span></span>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- TAB 2: DASHBOARD & BUKU AGENDA SURAT KELUAR / MASUK       -->
+        <!-- ========================================================= -->
+        <section id="tab-agenda" class="tab-content hidden p-4 sm:p-6 lg:p-8 space-y-6">
+            
+            <!-- Kartu Statistik Ringkasan -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Total Surat Keluar</p>
+                        <h4 id="stat-surat-keluar" class="text-2xl font-bold text-slate-900">0</h4>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-inbox"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Total Surat Masuk</p>
+                        <h4 id="stat-surat-masuk" class="text-2xl font-bold text-slate-900">0</h4>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-shield-check"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Terverifikasi TTE / QR</p>
+                        <h4 id="stat-surat-tte" class="text-2xl font-bold text-slate-900">0</h4>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-center gap-2">
+                    <button onclick="openModalSuratMasuk()" class="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Catat Surat Masuk Baru
+                    </button>
+                    <button onclick="switchTab('buat-surat'); resetFormSuratBaru();" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-circle-plus"></i> Buat Surat Keluar Baru
+                    </button>
+                </div>
+            </div>
+
+            <!-- Kontrol Pencarian, Filter, Impor & Ekspor Excel/CSV -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Buku Agenda & Arsip Persuratan</h2>
+                        <p class="text-xs text-slate-500">Kelola seluruh arsip surat keluar dan surat masuk SD Negeri Seganteng</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-import text-blue-600"></i>
+                            <span>Impor Excel / JSON</span>
+                            <input type="file" accept=".xlsx,.xls,.csv,.json" onchange="importAgendaFile(event)" class="hidden">
+                        </label>
+                        <button onclick="exportAgendaExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>Ekspor Rekap Excel</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
+                    <div class="sm:col-span-2 relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+                        <input type="text" id="search-agenda" oninput="renderAgendaTable()" placeholder="Cari nomor surat, perihal, tujuan, atau kode verifikasi..." class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <select id="filter-jenis-agenda" onchange="renderAgendaTable()" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL">Semua Jenis (Keluar & Masuk)</option>
+                            <option value="KELUAR">Surat Keluar Saja</option>
+                            <option value="MASUK">Surat Masuk Saja</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select id="filter-kategori-agenda" onchange="renderAgendaTable()" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL">Semua Kategori</option>
+                            <option value="undangan">Undangan</option>
+                            <option value="tugas">Surat Tugas</option>
+                            <option value="ket_aktif">Keterangan Siswa</option>
+                            <option value="ket_pindah">Mutasi / Pindah</option>
+                            <option value="pemberitahuan">Pemberitahuan</option>
+                            <option value="masuk">Agenda Surat Masuk</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tabel Data Agenda -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase text-slate-600">
+                                <th class="py-3 px-4">Jenis</th>
+                                <th class="py-3 px-4">Nomor & Tanggal Surat</th>
+                                <th class="py-3 px-4">Perihal / Isi Ringkas</th>
+                                <th class="py-3 px-4">Tujuan / Pengirim</th>
+                                <th class="py-3 px-4">Pengesahan / Kode</th>
+                                <th class="py-3 px-4 text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agenda-table-body" class="divide-y divide-slate-200 bg-white">
+                            <!-- Diisi via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- TAB 3: CEK KEASLIAN SURAT / VERIFIKASI QR CODE            -->
+        <!-- ========================================================= -->
+        <section id="tab-verifikasi" class="tab-content hidden p-4 sm:p-8 max-w-3xl mx-auto">
+            <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+                <div class="text-center space-y-2">
+                    <div class="w-16 h-16 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center text-3xl mx-auto">
+                        <i class="fa-solid fa-qrcode"></i>
+                    </div>
+                    <h2 class="text-xl sm:text-2xl font-bold text-slate-900">Verifikasi Keaslian Dokumen Elektronik</h2>
+                    <p class="text-sm text-slate-500 max-w-lg mx-auto">Masukkan Kode Verifikasi Elektronik (contoh: <span class="font-mono font-semibold text-slate-700">SGT-2026-8841</span>) yang tertera pada QR Code surat resmi SD Negeri Seganteng.</p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-2.5 max-w-xl mx-auto">
+                    <input type="text" id="input-cek-kode" placeholder="Masukkan Kode Verifikasi (misal: SGT-2026-...)" class="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="verifyDocumentCode()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-sm">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>Validasi Surat</span>
+                    </button>
+                </div>
+
+                <!-- Hasil Validasi -->
+                <div id="verification-result-box" class="hidden max-w-xl mx-auto"></div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- TAB 4: PENGATURAN KOP SURAT, KEPALA SEKOLAH & TTD/STEMPEL -->
+        <!-- ========================================================= -->
+        <section id="tab-pengaturan" class="tab-content hidden p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
+            <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+                <div class="border-b border-slate-100 pb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Pengaturan Profil Sekolah, Logo Kop & Tanda Tangan</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Semua gambar logo, tanda tangan, dan stempel disimpan secara lokal di browser Anda.</p>
+                    </div>
+                    <button onclick="saveSettings()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-check"></i> Simpan Pengaturan
+                    </button>
+                </div>
+
+                <!-- Upload Logo Kiri & Kanan -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Logo Kiri -->
+                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold text-slate-800">1. Logo Kiri (Kab. Lombok Tengah)</h3>
+                            <button type="button" onclick="resetDefaultLogo('kiri')" class="text-xs text-blue-600 hover:underline">Reset Default</button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="w-20 h-20 rounded-xl bg-white border border-slate-300 p-2 flex items-center justify-center">
+                                <img id="set-preview-logo-kiri" src="" alt="Preview Logo Kiri" class="max-w-full max-h-full object-contain">
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <label class="cursor-pointer inline-flex items-center gap-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition">
+                                    <i class="fa-solid fa-upload text-blue-600"></i>
+                                    <span>Upload Logo Kab. Loteng</span>
+                                    <input type="file" accept="image/*" onchange="handleImageUpload(event, 'logoKiri')" class="hidden">
+                                </label>
+                                <p class="text-[11px] text-slate-500">Format PNG/JPG transparan disarankan.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logo Kanan -->
+                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold text-slate-800">2. Logo Kanan (SD Negeri Seganteng)</h3>
+                            <button type="button" onclick="resetDefaultLogo('kanan')" class="text-xs text-blue-600 hover:underline">Reset Default</button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="w-20 h-20 rounded-xl bg-white border border-slate-300 p-2 flex items-center justify-center">
+                                <img id="set-preview-logo-kanan" src="" alt="Preview Logo Kanan" class="max-w-full max-h-full object-contain">
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <label class="cursor-pointer inline-flex items-center gap-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition">
+                                    <i class="fa-solid fa-upload text-blue-600"></i>
+                                    <span>Upload Logo SDN Seganteng</span>
+                                    <input type="file" accept="image/*" onchange="handleImageUpload(event, 'logoKanan')" class="hidden">
+                                </label>
+                                <p class="text-[11px] text-slate-500">Format PNG/JPG transparan disarankan.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Default Kepala Sekolah -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Default Kepala Sekolah</label>
+                        <input type="text" id="set-kepsek-nama" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">NIP Default Kepala Sekolah</label>
+                        <input type="text" id="set-kepsek-nip" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Kode Klasifikasi Surat Default</label>
+                        <input type="text" id="set-kode-klasifikasi" value="421.2" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+                    </div>
+                </div>
+
+                <!-- Upload / Gambar Tanda Tangan & Stempel Sekolah -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                    <!-- QR Code Kepala Sekolah Default -->
+                    <div class="bg-blue-50/60 rounded-2xl p-4 border border-blue-200 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold text-blue-950">3. Gambar QR Code Kepala Sekolah</h3>
+                            <button type="button" onclick="clearQrKepsekData()" class="text-xs text-rose-600 hover:underline">Hapus QR</button>
+                        </div>
+                        <div class="flex items-center gap-3 pt-1">
+                            <div class="w-24 h-24 rounded-xl bg-white border border-blue-200 p-2 flex items-center justify-center flex-shrink-0">
+                                <img id="set-preview-qr-kepsek" src="" alt="QR Kepsek" class="max-w-full max-h-full object-contain hidden">
+                                <span id="set-no-qr-kepsek" class="text-[11px] text-slate-400 text-center">Belum ada file QR</span>
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <label class="cursor-pointer inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-semibold transition shadow-sm">
+                                    <i class="fa-solid fa-qrcode"></i>
+                                    <span>Upload QR Kepsek</span>
+                                    <input type="file" accept="image/*" onchange="handleImageUpload(event, 'qrKepsekImage')" class="hidden">
+                                </label>
+                                <p class="text-[11px] text-slate-600">Unggah gambar QR TTE/identitas Kepala Sekolah (PNG/JPG) agar tersimpan otomatis.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tanda Tangan Kepala Sekolah (Upload atau Canvas Coretan) -->
+                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold text-slate-800">4. Tanda Tangan Kepala Sekolah</h3>
+                            <button type="button" onclick="clearSignatureData()" class="text-xs text-rose-600 hover:underline">Hapus TTD</button>
+                        </div>
+
+                        <!-- Canvas Tanda Tangan Langsung -->
+                        <div class="space-y-1.5">
+                            <span class="text-xs text-slate-600 block">Goreskan tanda tangan langsung di kotak putih atau unggah file PNG:</span>
+                            <canvas id="signature-pad" class="w-full h-32 bg-white border border-slate-300 rounded-xl cursor-crosshair touch-none"></canvas>
+                            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="clearCanvasPad()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium">Bersihkan Canvas</button>
+                                    <button type="button" onclick="saveCanvasSignature()" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium">Pakai Coretan Ini</button>
+                                </div>
+                                <label class="cursor-pointer text-xs px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-medium">
+                                    <i class="fa-solid fa-upload"></i> Upload PNG
+                                    <input type="file" accept="image/*" onchange="handleImageUpload(event, 'ttdImage')" class="hidden">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="set-ttd-preview-box" class="hidden pt-2 border-t border-slate-200 flex items-center gap-3">
+                            <span class="text-xs text-slate-500">TTD Aktif:</span>
+                            <img id="set-preview-ttd" src="" alt="TTD Aktif" class="h-12 object-contain bg-white px-2 py-1 rounded border border-slate-200">
+                        </div>
+                    </div>
+
+                    <!-- Stempel Sekolah -->
+                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold text-slate-800">5. Stempel Resmi Sekolah (PNG)</h3>
+                            <button type="button" onclick="clearStempelData()" class="text-xs text-rose-600 hover:underline">Hapus Stempel</button>
+                        </div>
+                        <div class="flex items-center gap-4 pt-2">
+                            <div class="w-24 h-24 rounded-xl bg-white border border-slate-300 p-2 flex items-center justify-center">
+                                <img id="set-preview-stempel" src="" alt="Stempel" class="max-w-full max-h-full object-contain hidden">
+                                <span id="set-no-stempel" class="text-[11px] text-slate-400 text-center">Belum ada stempel</span>
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <label class="cursor-pointer inline-flex items-center gap-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition">
+                                    <i class="fa-solid fa-stamp text-purple-600"></i>
+                                    <span>Upload Stempel PNG</span>
+                                    <input type="file" accept="image/*" onchange="handleImageUpload(event, 'stempelImage')" class="hidden">
+                                </label>
+                                <p class="text-[11px] text-slate-500">Gunakan gambar stempel berlatar belakang transparan (PNG) agar menyatu rapi dengan tanda tangan.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL INPUT SURAT MASUK (NO-PRINT) -->
+    <div id="modal-surat-masuk" class="no-print hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-inbox text-amber-600"></i> Catat Agenda Surat Masuk
+                </h3>
+                <button onclick="closeModalSuratMasuk()" class="text-slate-400 hover:text-slate-700">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor Surat Masuk</label>
+                        <input type="text" id="sm-nomor" placeholder="005/124/Dikbud/2026" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Surat</label>
+                        <input type="date" id="sm-tanggal" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Instansi / Pengirim Surat</label>
+                    <input type="text" id="sm-pengirim" placeholder="Dinas Pendidikan dan Kebudayaan Kab. Lombok Tengah" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Perihal / Isi Ringkas</label>
+                    <input type="text" id="sm-perihal" placeholder="Undangan Sosialisasi Kurikulum / Rapat Koordinasi" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Disposisi / Keterangan</label>
+                    <input type="text" id="sm-disposisi" placeholder="Diteruskan ke Kepala Sekolah / Guru Kelas" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button onclick="closeModalSuratMasuk()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100">Batal</button>
+                <button onclick="saveSuratMasuk()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-sm">Simpan Surat Masuk</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- JAVASCRIPT LOGIKA APLIKASI                                -->
+    <!-- ========================================================= -->
+    <script>
+        // --- 1. DEFAULT SVG ASSETS (LOGO LOMBOK TENGAH & LOGO SDN SEGANTENG) ---
+        const DEFAULT_LOGO_KIRI_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 210">
+                <path d="M12 10 H168 V125 C168 168 90 198 90 198 C90 198 12 168 12 125 Z" fill="#1e293b" stroke="#0f172a" stroke-width="4"/>
+                <rect x="18" y="15" width="144" height="22" rx="3" fill="#ffffff"/>
+                <text x="90" y="30" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#0f172a" text-anchor="middle">LOMBOK TENGAH</text>
+                <polygon points="90,43 94,54 106,54 96,61 100,72 90,65 80,72 84,61 74,54 86,54" fill="#facc15"/>
+                <circle cx="90" cy="115" r="42" fill="#38bdf8" stroke="#ffffff" stroke-width="3"/>
+                <path d="M52 115 Q90 72 128 115 Z" fill="#0f172a"/>
+                <path d="M50 115 A40 40 0 0 0 130 115 Z" fill="#16a34a"/>
+                <path d="M78 135 V105 Q90 88 102 105 V135 Z" fill="#facc15" stroke="#ffffff" stroke-width="1.5"/>
+                <rect x="87" y="118" width="6" height="24" fill="#ffffff"/>
+                <path d="M35 152 Q90 168 145 152 L140 168 Q90 183 40 168 Z" fill="#dc2626"/>
+                <text x="90" y="165" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#ffffff" text-anchor="middle">TASTURA</text>
+            </svg>
+        `);
+
+        const DEFAULT_LOGO_KANAN_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 200">
+                <polygon points="90,8 95,21 109,21 98,29 102,42 90,34 78,42 82,29 71,21 85,21" fill="#d97706"/>
+                <path d="M45 35 C20 75 25 130 65 162 C45 125 42 80 55 45 Z" fill="#eab308" stroke="#a16207" stroke-width="1.5"/>
+                <path d="M135 35 C160 75 155 130 115 162 C135 125 138 80 125 45 Z" fill="#eab308" stroke="#a16207" stroke-width="1.5"/>
+                <circle cx="90" cy="82" r="28" fill="#0284c7" stroke="#0f172a" stroke-width="2"/>
+                <path d="M74 75 Q85 65 95 75 Q105 85 92 95 Q78 92 74 75 Z" fill="#22c55e"/>
+                <path d="M58 95 Q55 128 84 142 L86 130 Q68 118 66 95 Z" fill="#1e293b"/>
+                <path d="M122 95 Q125 128 96 142 L94 130 Q112 118 114 95 Z" fill="#1e293b"/>
+                <path d="M62 152 L90 160 L118 152 L118 175 L90 183 L62 175 Z" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+                <line x1="90" y1="160" x2="90" y2="183" stroke="#1e293b" stroke-width="2"/>
+                <text x="90" y="196" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#1e293b" text-anchor="middle">SDN SEGANTENG</text>
+            </svg>
+        `);
+
+        // --- 2. STATE APLIKASI & LOCAL STORAGE ---
+        const STORAGE_KEYS = {
+            SETTINGS: 'sdn_seganteng_esurat_settings_v1',
+            AGENDA: 'sdn_seganteng_esurat_agenda_v1'
+        };
+
+        let appSettings = {
+            logoKiri: DEFAULT_LOGO_KIRI_SVG,
+            logoKanan: DEFAULT_LOGO_KANAN_SVG,
+            kepsekNama: 'H. AHMAD RIADI, S.Pd.',
+            kepsekNip: '19720514 199803 1 006',
+            kodeKlasifikasi: '421.2',
+            qrKepsekImage: '',
+            qrCustomText: '',
+            qrSize: 72,
+            ttdImage: '',
+            stempelImage: ''
+        };
+
+        let agendaList = [];
+        let editingSuratId = null;
+        let currentPaperSize = 'A4';
+        let currentVerificationCode = '';
+        let qrInstance = null;
+
+        // Data Dinamis Baris Rincian & Tabel
+        let detailRows = [];
+        let tableRows = [];
+
+        // --- 3. TEMPLATE SURAT DINAS LENGKAP (17 JENIS SURAT SEKOLAH) ---
+        const SURAT_TEMPLATES = {
+            ket_aktif: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT KETERANGAN AKTIF BELAJAR',
+                lampiran: '-',
+                perihal: 'Surat Keterangan Siswa Aktif',
+                tujuan: 'Orang Tua / Wali Siswa',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, menerangkan dengan sesungguhnya bahwa:',
+                details: [
+                    { label: 'Nama Siswa', value: 'LALU MUHAMMAD ZIDAN' },
+                    { label: 'Tempat, Tanggal Lahir', value: 'Lombok Tengah, 14 Mei 2016' },
+                    { label: 'NIS / NISN', value: '1042 / 0164829104' },
+                    { label: 'Jenis Kelamin', value: 'Laki-laki' },
+                    { label: 'Kelas', value: 'IV (Empat)' },
+                    { label: 'Nama Orang Tua / Wali', value: 'Lalu Ahmad Fauzi' },
+                    { label: 'Alamat', value: 'Dusun Seganteng, Desa Aik Bukaq, Kec. Batukliang Utara' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'NISN', 'Kelas'],
+                tableRows: [],
+                penutup: 'Adalah benar peserta didik yang terdaftar dan aktif mengikuti kegiatan belajar mengajar pada Sekolah Dasar Negeri Seganteng Tahun Ajaran 2026/2027.\nDemikian surat keterangan ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya (pengurusan Program Indonesia Pintar / KIP / Tunjangan).'
+            },
+            ket_pernah_sekolah: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT KETERANGAN PERNAH SEKOLAH',
+                lampiran: '-',
+                perihal: 'Surat Keterangan Pernah Bersekolah',
+                tujuan: 'Yang Bersangkutan',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, berdasarkan Buku Induk Siswa SD Negeri Seganteng menerangkan dengan sesungguhnya bahwa:',
+                details: [
+                    { label: 'Nama Lengkap', value: 'BAIQ RINA ASTUTI' },
+                    { label: 'Tempat, Tanggal Lahir', value: 'Seganteng, 10 Maret 2008' },
+                    { label: 'Nomor Induk / NISN', value: '0845 / 0084910283' },
+                    { label: 'Nama Orang Tua / Wali', value: 'Lalu Suparman' },
+                    { label: 'Alamat', value: 'Dusun Seganteng, Desa Aik Bukaq, Kec. Batukliang Utara' },
+                    { label: 'Tahun Masuk / Keluar', value: 'Tahun Pelajaran 2014/2015 s.d. 2019/2020 (Lulus)' },
+                    { label: 'Nomor Seri Ijazah', value: 'DN-23 Dd 0123456' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'NISN', 'Tahun Lulus'],
+                tableRows: [],
+                penutup: 'Adalah benar pernah bersekolah dan tercatat sebagai peserta didik pada Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah sampai menamatkan pendidikan dasar.\nDemikian surat keterangan pernah sekolah ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagai pengganti/pelengkap administrasi sebagaimana mestinya.'
+            },
+            pengantar_perbaikan_ijazah: {
+                formatHeader: 'formal',
+                judul: 'SURAT PENGANTAR PERBAIKAN IJAZAH',
+                lampiran: '1 (Satu) Gabung',
+                perihal: 'Permohonan Surat Keterangan Kesalahan Penulisan Data Ijazah',
+                tujuan: 'Kepala Dinas Pendidikan dan Kebudayaan\nKabupaten Lombok Tengah\nCq. Bidang Pembinaan SD',
+                tempatTujuan: 'Praya',
+                pembuka: 'Dengan hormat,\nSehubungan dengan adanya permohonan dari alumni/wali murid mengenai kekeliruan penulisan data pada blangko Ijazah Sekolah Dasar yang diterbitkan oleh SD Negeri Seganteng, bersama ini kami sampaikan berkas permohonan penerbitan Surat Keterangan Kesalahan Penulisan Data Ijazah atas nama:',
+                details: [
+                    { label: 'Nama Pemilik Ijazah', value: 'MUHAMMAD RIZKI PRATAMA' },
+                    { label: 'Tempat, Tanggal Lahir', value: 'Lombok Tengah, 17 Agustus 2011' },
+                    { label: 'Nomor Seri Ijazah / Tahun', value: 'DN-23 Dd 0458921 / Tahun 2023' },
+                    { label: 'Data Tercetak Salah', value: 'Nama Tertulis: MUHAMAD RIZKI PRATAMA' },
+                    { label: 'Data Seharusnya (Benar)', value: 'MUHAMMAD RIZKI PRATAMA (Sesuai Akta Kelahiran & KK)' }
+                ],
+                useTable: true,
+                tableHeaders: ['Jenis Berkas Lampiran', 'Jumlah', 'Keterangan'],
+                tableRows: [
+                    { col1: 'Fotokopi Ijazah SD yang dilegalisir', col2: '2 Lembar', col3: 'Terlampir' },
+                    { col1: 'Fotokopi Akta Kelahiran & Kartu Keluarga', col2: '2 Lembar', col3: 'Terlampir' },
+                    { col1: 'Fotokopi Halaman Buku Induk Siswa', col2: '1 Lembar', col3: 'Dilegalisir Kepala Sekolah' }
+                ],
+                penutup: 'Demikian surat pengantar ini kami sampaikan sebagai bahan pertimbangan dan proses penerbitan Surat Keterangan Kesalahan Penulisan Ijazah dari Dinas Pendidikan dan Kebudayaan Kabupaten Lombok Tengah. Atas perhatian dan kerja samanya kami ucapkan terima kasih.'
+            },
+            skl_sementara: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT KETERANGAN LULUS (SKL)',
+                lampiran: '-',
+                perihal: 'Surat Keterangan Lulus Sementara',
+                tujuan: 'Peserta Didik Kelas VI',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, berdasarkan hasil Rapat Dewan Guru tentang Penetapan Kelulusan Peserta Didik Tahun Ajaran 2026/2027, menerangkan bahwa:',
+                details: [
+                    { label: 'Nama Peserta Didik', value: 'LALU ARYA KUSUMA' },
+                    { label: 'Tempat, Tanggal Lahir', value: 'Lombok Tengah, 05 Februari 2014' },
+                    { label: 'NIS / NISN', value: '0987 / 0147283910' },
+                    { label: 'Nama Orang Tua / Wali', value: 'Lalu Darmawan' },
+                    { label: 'Keputusan Rapat', value: 'L U L U S' }
+                ],
+                useTable: false,
+                tableHeaders: ['Mata Pelajaran', 'Nilai', 'Keterangan'],
+                tableRows: [],
+                penutup: 'Surat Keterangan Lulus ini berlaku sementara sampai dengan diterbitkannya Ijazah asli. Demikian surat keterangan ini dibuat untuk dipergunakan sebagai syarat pendaftaran ke jenjang pendidikan berikutnya (SMP/MTs).'
+            },
+            ket_kelakuan_baik: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT KETERANGAN KELAKUAN BAIK',
+                lampiran: '-',
+                perihal: 'Surat Keterangan Berkelakuan Baik',
+                tujuan: 'Yang Bersangkutan',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, menerangkan dengan sesungguhnya bahwa:',
+                details: [
+                    { label: 'Nama Siswa', value: 'BAIQ NADIA SAFITRI' },
+                    { label: 'Tempat, Tanggal Lahir', value: 'Aik Bukaq, 12 September 2014' },
+                    { label: 'NIS / NISN', value: '0994 / 0148392011' },
+                    { label: 'Kelas', value: 'VI (Enam)' },
+                    { label: 'Alamat', value: 'Dusun Seganteng, Desa Aik Bukaq, Kec. Batukliang Utara' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'NISN', 'Keterangan'],
+                tableRows: [],
+                penutup: 'Selama menjadi peserta didik di Sekolah Dasar Negeri Seganteng, yang bersangkutan berkelakuan baik, menaati tata tertib sekolah, serta tidak pernah terlibat dalam pelanggaran norma maupun tindak pidana.\nDemikian surat keterangan ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.'
+            },
+            ket_pindah: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT KETERANGAN PINDAH SEKOLAH',
+                lampiran: '1 (Satu) Berkas',
+                perihal: 'Surat Keterangan Mutasi / Pindah Siswa',
+                tujuan: 'Kepala Sekolah Tujuan',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, menerangkan bahwa:',
+                details: [
+                    { label: 'Nama Peserta Didik', value: 'BAIQ ALYA PUTRI' },
+                    { label: 'Tempat, Tanggal Lahir', value: 'Praya, 20 Agustus 2017' },
+                    { label: 'NIS / NISN', value: '1089 / 0175920182' },
+                    { label: 'Kelas', value: 'III (Tiga)' },
+                    { label: 'Nama Orang Tua / Wali', value: 'Lalu Hendra Wijaya' },
+                    { label: 'Sekolah Tujuan', value: 'SD Negeri 1 Praya' },
+                    { label: 'Alasan Pindah', value: 'Mengikuti kepindahan tugas dan domisili orang tua' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'NISN', 'Kelas'],
+                tableRows: [],
+                penutup: 'Sesuai permohonan orang tua/wali murid yang bersangkutan, peserta didik tersebut telah disetujui untuk pindah sekolah dan data Dapodik akan segera dimutasikan. Bersama ini kami sertakan buku rapor dan berkas kelengkapan administrasi siswa.\nDemikian surat keterangan pindah ini dibuat untuk dapat dipergunakan sebagaimana mestinya.'
+            },
+            terima_pindah: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT KETERANGAN BERSEDIA MENERIMA SISWA PINDAHAN',
+                lampiran: '-',
+                perihal: 'Kesediaan Menerima Mutasi Siswa Masuk',
+                tujuan: 'Kepala Sekolah Asal',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, menerangkan bahwa berdasarkan permohonan orang tua/wali murid dan ketersediaan daya tampung rombongan belajar, kami bersedia menerima mutasi/pindahan peserta didik:',
+                details: [
+                    { label: 'Nama Peserta Didik', value: 'AHMAD DANIAL' },
+                    { label: 'Tempat, Tanggal Lahir', value: 'Mataram, 03 April 2017' },
+                    { label: 'NISN', value: '0172839405' },
+                    { label: 'Diterima di Kelas', value: 'III (Tiga) Tahun Ajaran 2026/2027' },
+                    { label: 'Asal Sekolah', value: 'SD Negeri 2 Mataram' },
+                    { label: 'Nama Orang Tua / Wali', value: 'H. Sabri' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'NISN', 'Kelas'],
+                tableRows: [],
+                penutup: 'Peserta didik tersebut akan diterima secara resmi setelah menyerahkan Surat Keterangan Pindah dari sekolah asal, Buku Rapor asli, serta surat rekomendasi mutasi dari Dinas Pendidikan setempat.\nDemikian surat keterangan ini dibuat untuk dipergunakan sebagaimana mestinya.'
+            },
+            tugas: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT TUGAS',
+                lampiran: '-',
+                perihal: 'Surat Tugas Mengikuti Kegiatan Workshop / Pelatihan',
+                tujuan: 'Guru / Tenaga Kependidikan Terlampir',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, dengan ini menugaskan kepada:',
+                details: [
+                    { label: 'Keperluan', value: 'Mengikuti Workshop Peningkatan Kompetensi Guru & Pembelajaran Mendalam' },
+                    { label: 'Hari / Tanggal', value: 'Senin s.d. Rabu, 30 November - 02 Desember 2026' },
+                    { label: 'Tempat', value: 'Aula Dinas Pendidikan dan Kebudayaan Kab. Lombok Tengah' }
+                ],
+                useTable: true,
+                tableHeaders: ['Nama Lengkap', 'NIP / NUPTK', 'Jabatan'],
+                tableRows: [
+                    { col1: 'Rizal, S.Pd.', col2: '19900101 202221 1 001', col3: 'Guru Kelas' },
+                    { col1: 'Baiq Siti Aminah, S.Pd.', col2: '19880412 201903 2 005', col3: 'Guru Kelas' }
+                ],
+                penutup: 'Demikian Surat Tugas ini dibuat untuk dapat dilaksanakan dengan penuh tanggung jawab dan melaporkan hasilnya setelah selesai melaksanakan tugas.'
+            },
+            pernyataan_sptjm: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT PERNYATAAN TANGGUNG JAWAB MUTLAK (SPTJM)',
+                lampiran: '-',
+                perihal: 'Surat Pernyataan Tanggung Jawab Mutlak',
+                tujuan: 'Dinas Pendidikan dan Kebudayaan',
+                tempatTujuan: 'Praya',
+                pembuka: 'Yang bertanda tangan di bawah ini:',
+                details: [
+                    { label: 'Nama', value: 'H. AHMAD RIADI, S.Pd.' },
+                    { label: 'NIP', value: '19720514 199803 1 006' },
+                    { label: 'Jabatan', value: 'Kepala Sekolah Dasar Negeri Seganteng' },
+                    { label: 'NPSN / Unit Kerja', value: '50201432 / SD Negeri Seganteng' },
+                    { label: 'Alamat Sekolah', value: 'Jln. Pariwisata Aik Bukaq Kec. Batukliang Utara Kab. Lombok Tengah' }
+                ],
+                useTable: false,
+                tableHeaders: ['Uraian', 'Jumlah', 'Keterangan'],
+                tableRows: [],
+                penutup: 'Menyatakan dengan sesungguhnya bahwa seluruh data peserta didik, pendidik dan tenaga kependidikan, serta dokumen administrasi yang diusulkan melalui aplikasi Dapodik / berkas usulan ini adalah benar, sah, dan dapat dipertanggungjawabkan sesuai ketentuan peraturan perundang-undangan yang berlaku.\nApabila di kemudian hari ditemukan ketidaksesuaian data, saya bersedia menerima sanksi sesuai aturan yang berlaku. Demikian surat pernyataan ini dibuat dengan penuh kesadaran tanpa paksaan dari pihak manapun.'
+            },
+            pernyataan_spmt: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT PERNYATAAN MELAKSANAKAN TUGAS (SPMT)',
+                lampiran: '-',
+                perihal: 'Surat Pernyataan Melaksanakan Tugas',
+                tujuan: 'Guru / Pegawai Bersangkutan',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, menerangkan dengan sesungguhnya bahwa:',
+                details: [
+                    { label: 'Nama Lengkap', value: 'RIZAL, S.Pd.' },
+                    { label: 'NIP / NI PPPK', value: '19900101 202221 1 001' },
+                    { label: 'Pangkat / Gol. Ruang', value: 'Penata Muda / IX' },
+                    { label: 'Jabatan / Tugas', value: 'Guru Kelas pada SD Negeri Seganteng' },
+                    { label: 'Dasar SK Pengangkatan', value: 'SK Bupati Lombok Tengah Nomor 813/120/BKPSDM/2026' },
+                    { label: 'Terhitung Mulai Tanggal', value: '01 November 2026' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'NIP', 'Jabatan'],
+                tableRows: [],
+                penutup: 'Telah nyata melaksanakan tugas sebagai Guru Kelas pada Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah.\nDemikian Surat Pernyataan Melaksanakan Tugas (SPMT) ini dibuat dengan sesungguhnya untuk dapat dipergunakan sebagaimana mestinya.'
+            },
+            rekomendasi: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT REKOMENDASI',
+                lampiran: '-',
+                perihal: 'Surat Rekomendasi Kepala Sekolah',
+                tujuan: 'Panitia / Instansi Penyelenggara',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, dengan ini memberikan rekomendasi kepada:',
+                details: [
+                    { label: 'Nama Lengkap', value: 'LALU MUHAMMAD ZIDAN' },
+                    { label: 'NIS / NISN', value: '1042 / 0164829104' },
+                    { label: 'Kelas / Jabatan', value: 'Siswa Kelas V SD Negeri Seganteng' },
+                    { label: 'Keperluan Rekomendasi', value: 'Mengikuti Seleksi Olimpiade Sains Nasional (OSN) / Kegiatan Prestasi Tingkat Kabupaten' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'Identitas', 'Keterangan'],
+                tableRows: [],
+                penutup: 'Berdasarkan pengamatan dan catatan prestasi akademik maupun non-akademik di sekolah, yang bersangkutan memiliki kemampuan, dedikasi, serta tanggung jawab yang baik untuk mengikuti kegiatan dimaksud.\nDemikian surat rekomendasi ini diberikan untuk dapat dipergunakan sebagaimana mestinya.'
+            },
+            dispensasi: {
+                formatHeader: 'formal',
+                judul: 'SURAT PERMOHONAN DISPENSASI',
+                lampiran: '-',
+                perihal: 'Permohonan Izin / Dispensasi Mengikuti Kegiatan',
+                tujuan: 'Yth. Bapak/Ibu Wali Kelas / Pengelola Kegiatan\ndi SD Negeri Seganteng',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Dengan hormat,\nSehubungan dengan keikutsertaan perwakilan SD Negeri Seganteng pada kegiatan Lomba / Pembinaan Tingkat Kecamatan Batukliang Utara, bersama ini kami memohonkan dispensasi tidak mengikuti kegiatan pembelajaran reguler bagi nama-nama berikut:',
+                details: [
+                    { label: 'Nama Kegiatan', value: 'Lomba Festival Tunas Bahasa Ibu (FTBI) Tingkat Kecamatan' },
+                    { label: 'Hari / Tanggal', value: 'Kamis, 03 Desember 2026' },
+                    { label: 'Tempat Pelaksanaan', value: 'UPT Pelayanan PAUD dan Dikdas Kec. Batukliang Utara' }
+                ],
+                useTable: true,
+                tableHeaders: ['Nama Lengkap', 'Kelas / Jabatan', 'Cabang Lomba'],
+                tableRows: [
+                    { col1: 'Baiq Zahra Aulia', col2: 'Kelas V', col3: 'Pidato Bahasa Sasak' },
+                    { col1: 'Lalu Gilang Ramadhan', col2: 'Kelas V', col3: 'Membaca Aksara Sasak' }
+                ],
+                penutup: 'Demikian permohonan dispensasi ini kami sampaikan. Atas perhatian dan kerja samanya diucapkan terima kasih.'
+            },
+            undangan: {
+                formatHeader: 'formal',
+                judul: 'SURAT UNDANGAN',
+                lampiran: '-',
+                perihal: 'Undangan Rapat Komite & Wali Murid',
+                tujuan: 'Bapak/Ibu Orang Tua / Wali Murid\nKelas I s.d. VI SD Negeri Seganteng',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Dengan hormat,\nSehubungan dengan akan dilaksanakannya evaluasi program pembelajaran semester dan persiapan kegiatan akhir tahun ajaran di SD Negeri Seganteng, bersama ini kami mengundang Bapak/Ibu Orang Tua/Wali Murid untuk hadir pada:',
+                details: [
+                    { label: 'Hari / Tanggal', value: 'Sabtu, 28 November 2026' },
+                    { label: 'Waktu', value: 'Pukul 08.30 WITA s.d. Selesai' },
+                    { label: 'Tempat', value: 'Aula SD Negeri Seganteng' },
+                    { label: 'Acara', value: 'Rapat Koordinasi Program Sekolah & Wali Murid' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama Lengkap', 'NIP / NISN', 'Keterangan'],
+                tableRows: [],
+                penutup: 'Mengingat pentingnya acara tersebut, kami sangat mengharapkan kehadiran Bapak/Ibu tepat pada waktunya. Demikian undangan ini kami sampaikan, atas perhatian dan kerja samanya diucapkan terima kasih.'
+            },
+            pemberitahuan: {
+                formatHeader: 'formal',
+                judul: 'SURAT PEMBERITAHUAN',
+                lampiran: '-',
+                perihal: 'Pemberitahuan Pelaksanaan Sumatif Akhir Semester (SAS)',
+                tujuan: 'Bapak/Ibu Orang Tua / Wali Murid\nSD Negeri Seganteng',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Dengan hormat,\nBerdasarkan kalender pendidikan Tahun Ajaran 2026/2027, kami beritahukan kepada Bapak/Ibu Orang Tua/Wali Murid bahwa pelaksanaan Sumatif Akhir Semester (SAS) Ganjil di SD Negeri Seganteng akan dilaksanakan pada:',
+                details: [
+                    { label: 'Tanggal Pelaksanaan', value: 'Senin, 07 Desember s.d. Sabtu, 12 Desember 2026' },
+                    { label: 'Waktu', value: 'Pukul 07.30 WITA s.d. 11.00 WITA' },
+                    { label: 'Tempat', value: 'Ruang Kelas SD Negeri Seganteng' }
+                ],
+                useTable: false,
+                tableHeaders: ['Hari', 'Mata Pelajaran', 'Waktu'],
+                tableRows: [],
+                penutup: 'Sehubungan dengan hal tersebut, kami mohon bantuan Bapak/Ibu untuk membimbing dan memantau putra-putrinya belajar di rumah serta memastikan kehadiran siswa tepat waktu. Atas perhatian dan dukungan Bapak/Ibu kami ucapkan terima kasih.'
+            },
+            panggilan_ortu: {
+                formatHeader: 'formal',
+                judul: 'SURAT PANGGILAN ORANG TUA',
+                lampiran: '-',
+                perihal: 'Panggilan Orang Tua / Wali Murid',
+                tujuan: 'Yth. Bapak/Ibu Orang Tua / Wali dari\nAnanda: Lalu Fajar Maulana (Kelas V)',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Dengan hormat,\nDalam rangka menjalin komunikasi dan pembinaan perkembangan belajar serta kedisiplinan peserta didik di SD Negeri Seganteng, kami mengharapkan kehadiran Bapak/Ibu Orang Tua/Wali Murid pada:',
+                details: [
+                    { label: 'Hari / Tanggal', value: 'Selasa, 01 Desember 2026' },
+                    { label: 'Waktu', value: 'Pukul 09.00 WITA' },
+                    { label: 'Tempat', value: 'Ruang Kepala Sekolah / Ruang Guru SD Negeri Seganteng' },
+                    { label: 'Menghadap', value: 'Kepala Sekolah & Wali Kelas V' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'Kelas', 'Keterangan'],
+                tableRows: [],
+                penutup: 'Mengingat pentingnya hal yang akan dibicarakan demi kebaikan putra/putri Bapak/Ibu, kami sangat mengharapkan kehadiran Bapak/Ibu tepat waktu. Atas perhatian dan kerja samanya kami ucapkan terima kasih.'
+            },
+            surat_kuasa: {
+                formatHeader: 'judul_tengah',
+                judul: 'SURAT KUASA',
+                lampiran: '-',
+                perihal: 'Surat Kuasa Pengambilan Dokumen / Dana PIP',
+                tujuan: 'Bank Penyalur / Instansi Terkait',
+                tempatTujuan: 'Tempat',
+                pembuka: 'Yang bertanda tangan di bawah ini Kepala Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, memberikan kuasa kepada:',
+                details: [
+                    { label: 'Nama Penerima Kuasa', value: 'RIZAL, S.Pd.' },
+                    { label: 'NIP / NIK', value: '19900101 202221 1 001' },
+                    { label: 'Jabatan', value: 'Guru / Operator Sekolah SD Negeri Seganteng' },
+                    { label: 'Keperluan Kuasa', value: 'Pengurusan dan pengambilan berkas administrasi / pencairan kolektif Program Indonesia Pintar (PIP) siswa SD Negeri Seganteng' }
+                ],
+                useTable: false,
+                tableHeaders: ['Nama', 'Jabatan', 'Keterangan'],
+                tableRows: [],
+                penutup: 'Demikian Surat Kuasa ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.'
+            },
+            custom: {
+                formatHeader: 'formal',
+                judul: 'SURAT KETERANGAN',
+                lampiran: '-',
+                perihal: 'Permohonan / Penyampaian Informasi',
+                tujuan: 'Yth. Kepala Dinas Pendidikan dan Kebudayaan\nKabupaten Lombok Tengah',
+                tempatTujuan: 'Praya',
+                pembuka: 'Dengan hormat,\nBersama ini kami sampaikan perihal kegiatan administrasi di lingkungan Sekolah Dasar Negeri Seganteng Kecamatan Batukliang Utara Kabupaten Lombok Tengah, dengan rincian sebagai berikut:',
+                details: [
+                    { label: 'Nama Sekolah', value: 'SD Negeri Seganteng' },
+                    { label: 'NPSN', value: '50201432' },
+                    { label: 'Alamat', value: 'Jln. Pariwisata Aik Bukaq Kec. Batukliang Utara' }
+                ],
+                useTable: false,
+                tableHeaders: ['Uraian', 'Volume', 'Keterangan'],
+                tableRows: [],
+                penutup: 'Demikian surat ini kami sampaikan, atas perhatian dan perkenan Bapak/Ibu kami ucapkan terima kasih.'
+            }
+        };
+
+        // --- 4. INISIALISASI APLIKASI ---
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            loadAgenda();
+            initSignaturePad();
+
+            // Set tanggal hari ini
+            const todayISO = new Date().toISOString().split('T')[0];
+            document.getElementById('input-tanggal-surat').value = todayISO;
+            document.getElementById('sm-tanggal').value = todayISO;
+
+            // Terapkan template awal
+            regenerateVerificationCode();
+            applyTemplate('undangan');
+            generateAutoNumber();
+            renderAgendaTable();
+        });
+
+        // --- 5. MANAJEMEN SETTINGS & LOGO KOP ---
+        function loadSettings() {
+            const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+            if (saved) {
+                try {
+                    appSettings = { ...appSettings, ...JSON.parse(saved) };
+                } catch (e) {
+                    console.error('Gagal memuat pengaturan:', e);
+                }
+            }
+            applySettingsToUI();
+        }
+
+        function applySettingsToUI() {
+            // Kop Surat Preview
+            document.getElementById('kop-logo-kiri').src = appSettings.logoKiri || DEFAULT_LOGO_KIRI_SVG;
+            document.getElementById('kop-logo-kanan').src = appSettings.logoKanan || DEFAULT_LOGO_KANAN_SVG;
+
+            // Halaman Pengaturan
+            document.getElementById('set-preview-logo-kiri').src = appSettings.logoKiri || DEFAULT_LOGO_KIRI_SVG;
+            document.getElementById('set-preview-logo-kanan').src = appSettings.logoKanan || DEFAULT_LOGO_KANAN_SVG;
+            document.getElementById('set-kepsek-nama').value = appSettings.kepsekNama;
+            document.getElementById('set-kepsek-nip').value = appSettings.kepsekNip;
+            document.getElementById('set-kode-klasifikasi').value = appSettings.kodeKlasifikasi || '421.2';
+
+            // Form Editor Surat
+            document.getElementById('input-kepsek-nama').value = appSettings.kepsekNama;
+            document.getElementById('input-kepsek-nip').value = appSettings.kepsekNip;
+
+            // Sinkronisasi Pengaturan QR Code Kepala Sekolah
+            const qrSize = appSettings.qrSize || 72;
+            const sizeSlider = document.getElementById('input-qr-size');
+            if (sizeSlider) {
+                sizeSlider.value = qrSize;
+                updateQrSizeLabel(qrSize);
+            }
+            const qrCustomInput = document.getElementById('input-qr-custom-text');
+            if (qrCustomInput && !qrCustomInput.value) {
+                qrCustomInput.value = appSettings.qrCustomText || `SAH - Kepala SD Negeri Seganteng: ${appSettings.kepsekNama} (NIP. ${appSettings.kepsekNip})`;
+            }
+
+            const prevImgQrKepsek = document.getElementById('prev-img-qr-kepsek');
+            const setPrevQrKepsek = document.getElementById('set-preview-qr-kepsek');
+            const setNoQrKepsek = document.getElementById('set-no-qr-kepsek');
+
+            if (appSettings.qrKepsekImage) {
+                if (prevImgQrKepsek) prevImgQrKepsek.src = appSettings.qrKepsekImage;
+                if (setPrevQrKepsek) {
+                    setPrevQrKepsek.src = appSettings.qrKepsekImage;
+                    setPrevQrKepsek.classList.remove('hidden');
+                }
+                if (setNoQrKepsek) setNoQrKepsek.classList.add('hidden');
+            } else {
+                if (prevImgQrKepsek) prevImgQrKepsek.src = '';
+                if (setPrevQrKepsek) setPrevQrKepsek.classList.add('hidden');
+                if (setNoQrKepsek) setNoQrKepsek.classList.remove('hidden');
+            }
+
+            // TTD & Stempel Preview di Pengaturan & Surat
+            const imgTtd = document.getElementById('prev-img-ttd');
+            const setPrevTtd = document.getElementById('set-preview-ttd');
+            const setTtdBox = document.getElementById('set-ttd-preview-box');
+
+            if (appSettings.ttdImage) {
+                imgTtd.src = appSettings.ttdImage;
+                imgTtd.classList.remove('hidden');
+                setPrevTtd.src = appSettings.ttdImage;
+                setTtdBox.classList.remove('hidden');
+            } else {
+                imgTtd.classList.add('hidden');
+                setTtdBox.classList.add('hidden');
+            }
+
+            const imgStempel = document.getElementById('prev-img-stempel');
+            const setPrevStempel = document.getElementById('set-preview-stempel');
+            const setNoStempel = document.getElementById('set-no-stempel');
+
+            if (appSettings.stempelImage) {
+                imgStempel.src = appSettings.stempelImage;
+                imgStempel.classList.remove('hidden');
+                setPrevStempel.src = appSettings.stempelImage;
+                setPrevStempel.classList.remove('hidden');
+                setNoStempel.classList.add('hidden');
+            } else {
+                imgStempel.classList.add('hidden');
+                setPrevStempel.classList.add('hidden');
+                setNoStempel.classList.remove('hidden');
+            }
+
+            updatePreview();
+        }
+
+        function saveSettings() {
+            appSettings.kepsekNama = document.getElementById('set-kepsek-nama').value.trim() || 'H. AHMAD RIADI, S.Pd.';
+            appSettings.kepsekNip = document.getElementById('set-kepsek-nip').value.trim() || '-';
+            appSettings.kodeKlasifikasi = document.getElementById('set-kode-klasifikasi').value.trim() || '421.2';
+
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(appSettings));
+            applySettingsToUI();
+            showToast('Pengaturan Kop Surat, Kepala Sekolah & TTD berhasil disimpan!', 'success');
+        }
+
+        function handleImageUpload(event, targetKey) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                appSettings[targetKey] = e.target.result;
+                localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(appSettings));
+                applySettingsToUI();
+                showToast('Gambar berhasil diunggah dan diterapkan!', 'success');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetDefaultLogo(side) {
+            if (side === 'kiri') {
+                appSettings.logoKiri = DEFAULT_LOGO_KIRI_SVG;
+            } else {
+                appSettings.logoKanan = DEFAULT_LOGO_KANAN_SVG;
+            }
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(appSettings));
+            applySettingsToUI();
+            showToast('Logo dikembalikan ke bawaan.', 'info');
+        }
+
+        function clearSignatureData() {
+            appSettings.ttdImage = '';
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(appSettings));
+            applySettingsToUI();
+            showToast('Gambar tanda tangan dihapus.', 'info');
+        }
+
+        function clearStempelData() {
+            appSettings.stempelImage = '';
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(appSettings));
+            applySettingsToUI();
+            showToast('Gambar stempel dihapus.', 'info');
+        }
+
+        function clearQrKepsekData() {
+            appSettings.qrKepsekImage = '';
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(appSettings));
+            applySettingsToUI();
+            showToast('Gambar QR Code Kepala Sekolah dihapus.', 'info');
+        }
+
+        function updateQrSizeLabel(val) {
+            appSettings.qrSize = parseInt(val, 10) || 72;
+            const lbl = document.getElementById('label-qr-size');
+            if (lbl) lbl.textContent = appSettings.qrSize + 'px';
+        }
+
+        // --- 6. CANVAS TANDA TANGAN CORETAN ---
+        let sigCanvas, sigCtx, isDrawing = false;
+
+        function initSignaturePad() {
+            sigCanvas = document.getElementById('signature-pad');
+            if (!sigCanvas) return;
+            sigCtx = sigCanvas.getContext('2d');
+
+            const resizeCanvas = () => {
+                const rect = sigCanvas.getBoundingClientRect();
+                if (rect.width > 0) {
+                    sigCanvas.width = rect.width;
+                    sigCanvas.height = rect.height;
+                    sigCtx.lineWidth = 2.4;
+                    sigCtx.lineCap = 'round';
+                    sigCtx.lineJoin = 'round';
+                    sigCtx.strokeStyle = '#0f172a';
+                }
+            };
+            window.addEventListener('resize', resizeCanvas);
+            setTimeout(resizeCanvas, 200);
+
+            const getPos = (e) => {
+                const rect = sigCanvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            };
+
+            const startDraw = (e) => {
+                isDrawing = true;
+                const pos = getPos(e);
+                sigCtx.beginPath();
+                sigCtx.moveTo(pos.x, pos.y);
+            };
+            const draw = (e) => {
+                if (!isDrawing) return;
+                if (e.cancelable) e.preventDefault();
+                const pos = getPos(e);
+                sigCtx.lineTo(pos.x, pos.y);
+                sigCtx.stroke();
+            };
+            const endDraw = () => {
+                isDrawing = false;
+            };
+
+            sigCanvas.addEventListener('mousedown', startDraw);
+            sigCanvas.addEventListener('mousemove', draw);
+            sigCanvas.addEventListener('mouseup', endDraw);
+            sigCanvas.addEventListener('mouseleave', endDraw);
+
+            sigCanvas.addEventListener('touchstart', startDraw, { passive: false });
+            sigCanvas.addEventListener('touchmove', draw, { passive: false });
+            sigCanvas.addEventListener('touchend', endDraw);
+        }
+
+        function clearCanvasPad() {
+            if (!sigCanvas || !sigCtx) return;
+            sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+        }
+
+        function saveCanvasSignature() {
+            if (!sigCanvas) return;
+            appSettings.ttdImage = sigCanvas.toDataURL('image/png');
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(appSettings));
+            applySettingsToUI();
+            showToast('Coretan tanda tangan disimpan dan siap digunakan!', 'success');
+        }
+
+        // --- 7. GENERATOR NOMOR SURAT & KODE VERIFIKASI ---
+        function generateAutoNumber() {
+            const keluarCount = agendaList.filter(item => item.jenis === 'KELUAR').length + 1;
+            const paddedNum = String(keluarCount).padStart(3, '0');
+            const dateVal = document.getElementById('input-tanggal-surat').value || new Date().toISOString().split('T')[0];
+            const dateObj = new Date(dateVal);
+            const romanMonths = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+            const bulanRomawi = romanMonths[dateObj.getMonth()] || 'XI';
+            const tahun = dateObj.getFullYear() || 2026;
+            const klasifikasi = appSettings.kodeKlasifikasi || '421.2';
+
+            document.getElementById('input-nomor').value = `${klasifikasi}/${paddedNum}/SDN-SGT/${bulanRomawi}/${tahun}`;
+            updatePreview();
+        }
+
+        function regenerateVerificationCode() {
+            const year = new Date().getFullYear();
+            const rand = Math.floor(1000 + Math.random() * 9000);
+            currentVerificationCode = `SGT-${year}-${rand}`;
+            document.getElementById('display-kode-verifikasi').textContent = currentVerificationCode;
+            updatePreview();
+        }
+
+        // --- 8. LOGIKA EDITOR & LIVE PREVIEW SURAT ---
+        function setPaperSize(size) {
+            currentPaperSize = size;
+            const paper = document.getElementById('surat-paper');
+            const btnA4 = document.getElementById('btn-paper-a4');
+            const btnF4 = document.getElementById('btn-paper-f4');
+            const label = document.getElementById('label-paper-size');
+
+            if (size === 'A4') {
+                paper.classList.remove('paper-f4');
+                paper.classList.add('paper-a4');
+                btnA4.className = 'py-1.5 text-xs font-bold rounded-lg bg-white text-blue-700 shadow-sm transition';
+                btnF4.className = 'py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition';
+                label.textContent = 'A4 (210 x 297 mm)';
+            } else {
+                paper.classList.remove('paper-a4');
+                paper.classList.add('paper-f4');
+                btnF4.className = 'py-1.5 text-xs font-bold rounded-lg bg-white text-blue-700 shadow-sm transition';
+                btnA4.className = 'py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition';
+                label.textContent = 'F4 / Folio (215 x 330 mm)';
+            }
+        }
+
+        function applyTemplate(templateKey) {
+            const tpl = SURAT_TEMPLATES[templateKey] || SURAT_TEMPLATES.undangan;
+            document.getElementById('input-format-header').value = tpl.formatHeader;
+            document.getElementById('input-judul-surat').value = tpl.judul;
+            document.getElementById('input-lampiran').value = tpl.lampiran;
+            document.getElementById('input-perihal').value = tpl.perihal;
+            document.getElementById('input-tujuan').value = tpl.tujuan;
+            document.getElementById('input-tempat-tujuan').value = tpl.tempatTujuan;
+            document.getElementById('input-pembuka').value = tpl.pembuka;
+            document.getElementById('input-penutup').value = tpl.penutup;
+
+            detailRows = JSON.parse(JSON.stringify(tpl.details));
+            renderDetailRowsEditor();
+
+            document.getElementById('toggle-tabel-data').checked = tpl.useTable;
+            document.getElementById('th-col-1').value = tpl.tableHeaders[0] || 'Nama Lengkap';
+            document.getElementById('th-col-2').value = tpl.tableHeaders[1] || 'NIP / NISN';
+            document.getElementById('th-col-3').value = tpl.tableHeaders[2] || 'Keterangan';
+            tableRows = JSON.parse(JSON.stringify(tpl.tableRows));
+            renderTableRowsEditor();
+
+            updatePreview();
+        }
+
+        function resetFormSuratBaru() {
+            editingSuratId = null;
+            document.getElementById('btn-save-label').textContent = 'Simpan ke Agenda';
+            regenerateVerificationCode();
+            generateAutoNumber();
+            const tplKey = document.getElementById('template-selector').value;
+            applyTemplate(tplKey);
+            showToast('Form disiapkan untuk membuat surat baru.', 'info');
+        }
+
+        function renderDetailRowsEditor() {
+            const container = document.getElementById('detail-rows-container');
+            container.innerHTML = '';
+            detailRows.forEach((row, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-1.5';
+                div.innerHTML = `
+                    <input type="text" value="${escapeHtml(row.label)}" oninput="detailRows[${index}].label = this.value; updatePreview()" placeholder="Label (mis: Hari/Tgl)" class="w-[38%] rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs">
+                    <input type="text" value="${escapeHtml(row.value)}" oninput="detailRows[${index}].value = this.value; updatePreview()" placeholder="Isi rincian..." class="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs">
+                    <button type="button" onclick="removeDetailRow(${index})" class="text-slate-400 hover:text-rose-600 px-1.5 py-1 text-xs">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addDetailRow() {
+            detailRows.push({ label: 'Keterangan', value: '' });
+            renderDetailRowsEditor();
+            updatePreview();
+        }
+
+        function removeDetailRow(index) {
+            detailRows.splice(index, 1);
+            renderDetailRowsEditor();
+            updatePreview();
+        }
+
+        function renderTableRowsEditor() {
+            const container = document.getElementById('table-rows-container');
+            container.innerHTML = '';
+            tableRows.forEach((row, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-1';
+                div.innerHTML = `
+                    <input type="text" value="${escapeHtml(row.col1)}" oninput="tableRows[${index}].col1 = this.value; updatePreview()" placeholder="Kolom 1" class="w-1/3 rounded border border-slate-300 bg-white px-1.5 py-1 text-xs">
+                    <input type="text" value="${escapeHtml(row.col2)}" oninput="tableRows[${index}].col2 = this.value; updatePreview()" placeholder="Kolom 2" class="w-1/3 rounded border border-slate-300 bg-white px-1.5 py-1 text-xs">
+                    <input type="text" value="${escapeHtml(row.col3)}" oninput="tableRows[${index}].col3 = this.value; updatePreview()" placeholder="Kolom 3" class="w-1/3 rounded border border-slate-300 bg-white px-1.5 py-1 text-xs">
+                    <button type="button" onclick="removeTableRow(${index})" class="text-slate-400 hover:text-rose-600 px-1 text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addTableRow() {
+            document.getElementById('toggle-tabel-data').checked = true;
+            tableRows.push({ col1: '', col2: '', col3: '' });
+            renderTableRowsEditor();
+            updatePreview();
+        }
+
+        function removeTableRow(index) {
+            tableRows.splice(index, 1);
+            renderTableRowsEditor();
+            updatePreview();
+        }
+
+        function formatTanggalIndonesia(dateStr) {
+            if (!dateStr) return '';
+            const bulanIndo = [
+                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+            ];
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            const year = parts[0];
+            const month = bulanIndo[parseInt(parts[1], 10) - 1] || '';
+            const day = parseInt(parts[2], 10);
+            return `${day} ${month} ${year}`;
+        }
+
+        function updatePreview() {
+            const formatHeader = document.getElementById('input-format-header').value;
+            const judulSurat = document.getElementById('input-judul-surat').value;
+            const nomor = document.getElementById('input-nomor').value;
+            const lampiran = document.getElementById('input-lampiran').value;
+            const perihal = document.getElementById('input-perihal').value;
+            const tujuan = document.getElementById('input-tujuan').value;
+            const tempatTujuan = document.getElementById('input-tempat-tujuan').value;
+            const pembuka = document.getElementById('input-pembuka').value;
+            const penutup = document.getElementById('input-penutup').value;
+            const tempatSurat = document.getElementById('input-tempat-surat').value;
+            const tanggalRaw = document.getElementById('input-tanggal-surat').value;
+            const tanggalFormatted = formatTanggalIndonesia(tanggalRaw);
+            const kepsekNama = document.getElementById('input-kepsek-nama').value;
+            const kepsekNip = document.getElementById('input-kepsek-nip').value;
+
+            // Toggle tampilan form & preview header
+            const judulGroup = document.getElementById('judul-tengah-group');
+            const fieldLampiran = document.getElementById('field-lampiran');
+            const fieldPerihalTujuan = document.getElementById('field-perihal-tujuan');
+            const prevFormal = document.getElementById('preview-header-formal');
+            const prevJudul = document.getElementById('preview-header-judul');
+
+            if (formatHeader === 'judul_tengah') {
+                judulGroup.classList.remove('hidden');
+                fieldLampiran.classList.add('hidden');
+                fieldPerihalTujuan.classList.add('hidden');
+                prevFormal.classList.add('hidden');
+                prevJudul.classList.remove('hidden');
+            } else {
+                judulGroup.classList.add('hidden');
+                fieldLampiran.classList.remove('hidden');
+                fieldPerihalTujuan.classList.remove('hidden');
+                prevFormal.classList.remove('hidden');
+                prevJudul.classList.add('hidden');
+            }
+
+            // Isi teks ke preview
+            document.getElementById('prev-judul-surat').textContent = judulSurat.toUpperCase();
+            document.getElementById('prev-nomor').textContent = nomor;
+            document.getElementById('prev-nomor-judul').textContent = nomor;
+            document.getElementById('prev-lampiran').textContent = lampiran;
+            document.getElementById('prev-perihal').textContent = perihal;
+            document.getElementById('prev-tujuan').textContent = tujuan;
+            document.getElementById('prev-tempat-tujuan').textContent = tempatTujuan;
+            document.getElementById('prev-pembuka').textContent = pembuka;
+            document.getElementById('prev-penutup').textContent = penutup;
+            document.getElementById('prev-tempat-surat').textContent = tempatSurat;
+            document.getElementById('prev-tanggal-surat').textContent = tanggalFormatted;
+            document.getElementById('prev-kepsek-nama').textContent = kepsekNama;
+            document.getElementById('prev-kepsek-nip').textContent = kepsekNip;
+
+            // Render rincian key-value
+            const detailTbody = document.getElementById('prev-detail-tbody');
+            detailTbody.innerHTML = '';
+            detailRows.forEach(item => {
+                if (item.label.trim() || item.value.trim()) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="width: 175px; vertical-align: top; padding: 2px 0;">${escapeHtml(item.label)}</td>
+                        <td style="width: 16px; vertical-align: top; padding: 2px 0;">:</td>
+                        <td style="vertical-align: top; padding: 2px 0;">${escapeHtml(item.value)}</td>
+                    `;
+                    detailTbody.appendChild(tr);
+                }
+            });
+
+            // Render tabel opsional
+            const useTable = document.getElementById('toggle-tabel-data').checked;
+            const tabelEditorWrapper = document.getElementById('tabel-editor-wrapper');
+            const prevTableWrapper = document.getElementById('prev-data-table-wrapper');
+
+            if (useTable) {
+                tabelEditorWrapper.classList.remove('hidden');
+                prevTableWrapper.classList.remove('hidden');
+                document.getElementById('prev-th-1').textContent = document.getElementById('th-col-1').value;
+                document.getElementById('prev-th-2').textContent = document.getElementById('th-col-2').value;
+                document.getElementById('prev-th-3').textContent = document.getElementById('th-col-3').value;
+
+                const tbody = document.getElementById('prev-table-tbody');
+                tbody.innerHTML = '';
+                tableRows.forEach((r, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="text-align: center;">${idx + 1}</td>
+                        <td>${escapeHtml(r.col1)}</td>
+                        <td>${escapeHtml(r.col2)}</td>
+                        <td>${escapeHtml(r.col3)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tabelEditorWrapper.classList.add('hidden');
+                prevTableWrapper.classList.add('hidden');
+            }
+
+            // Render Mode Pengesahan TTD / QR Code
+            const ttdMode = document.querySelector('input[name="ttd_mode"]:checked')?.value || 'qr_only';
+            const qrWrapper = document.getElementById('prev-qr-wrapper');
+            const qrCanvasEl = document.getElementById('qrcode-canvas');
+            const qrUploadedBox = document.getElementById('qrcode-uploaded-box');
+            const prevImgQrKepsek = document.getElementById('prev-img-qr-kepsek');
+            const ttdStempelWrapper = document.getElementById('prev-ttd-stempel-wrapper');
+            const tteFooter = document.getElementById('prev-tte-footer');
+            const qrOverlayStempel = document.getElementById('prev-qr-overlay-stempel');
+
+            // Toggle sub-panel inputan QR Kepala Sekolah di editor
+            const panelInputQr = document.getElementById('panel-input-qr-kepsek');
+            const subinputQrUpload = document.getElementById('subinput-qr-upload');
+            const subinputQrCustom = document.getElementById('subinput-qr-custom');
+
+            const isQrMode = ['qr_only', 'qr_kepsek_upload', 'qr_custom_text', 'qr_plus_ttd'].includes(ttdMode);
+            if (panelInputQr) {
+                panelInputQr.classList.toggle('hidden', !isQrMode);
+            }
+            if (subinputQrUpload) {
+                subinputQrUpload.classList.toggle('hidden', ttdMode !== 'qr_kepsek_upload');
+            }
+            if (subinputQrCustom) {
+                subinputQrCustom.classList.toggle('hidden', ttdMode !== 'qr_custom_text');
+            }
+
+            // Caption & Ukuran QR
+            const qrCaptionVal = document.getElementById('input-qr-caption')?.value || 'Ditandatangani secara elektronik oleh:';
+            const prevQrCaptionTitle = document.getElementById('prev-qr-caption-title');
+            if (prevQrCaptionTitle) prevQrCaptionTitle.textContent = qrCaptionVal;
+
+            const qrSizePx = parseInt(document.getElementById('input-qr-size')?.value || appSettings.qrSize || 72, 10);
+            if (prevImgQrKepsek) {
+                prevImgQrKepsek.style.width = qrSizePx + 'px';
+                prevImgQrKepsek.style.height = qrSizePx + 'px';
+            }
+
+            // Stempel tambahan di atas QR jika dicentang
+            const useStempelWithQr = document.getElementById('toggle-stempel-with-qr')?.checked;
+            if (qrOverlayStempel) {
+                if (isQrMode && useStempelWithQr && appSettings.stempelImage) {
+                    qrOverlayStempel.src = appSettings.stempelImage;
+                    qrOverlayStempel.classList.remove('hidden');
+                } else {
+                    qrOverlayStempel.classList.add('hidden');
+                }
+            }
+
+            document.getElementById('prev-qr-code-text').textContent = currentVerificationCode;
+            document.getElementById('prev-footer-code').textContent = currentVerificationCode;
+
+            if (ttdMode === 'qr_only') {
+                qrWrapper.classList.remove('hidden');
+                qrCanvasEl.classList.remove('hidden');
+                qrUploadedBox.classList.add('hidden');
+                ttdStempelWrapper.classList.add('hidden');
+                tteFooter.classList.remove('hidden');
+                renderQRCode(nomor, perihal || judulSurat, tanggalFormatted, kepsekNama, qrSizePx);
+            } else if (ttdMode === 'qr_kepsek_upload') {
+                qrWrapper.classList.remove('hidden');
+                ttdStempelWrapper.classList.add('hidden');
+                tteFooter.classList.remove('hidden');
+                if (appSettings.qrKepsekImage) {
+                    qrCanvasEl.classList.add('hidden');
+                    qrUploadedBox.classList.remove('hidden');
+                } else {
+                    // Fallback ke QR generate otomatis jika gambar belum diupload
+                    qrCanvasEl.classList.remove('hidden');
+                    qrUploadedBox.classList.add('hidden');
+                    renderQRCode(nomor, perihal || judulSurat, tanggalFormatted, kepsekNama, qrSizePx);
+                }
+            } else if (ttdMode === 'qr_custom_text') {
+                qrWrapper.classList.remove('hidden');
+                qrCanvasEl.classList.remove('hidden');
+                qrUploadedBox.classList.add('hidden');
+                ttdStempelWrapper.classList.add('hidden');
+                tteFooter.classList.remove('hidden');
+                const customPayload = document.getElementById('input-qr-custom-text')?.value.trim() || `Kepala SD Negeri Seganteng: ${kepsekNama}`;
+                appSettings.qrCustomText = customPayload;
+                renderQRCode(nomor, perihal || judulSurat, tanggalFormatted, kepsekNama, qrSizePx, customPayload);
+            } else if (ttdMode === 'qr_plus_ttd') {
+                qrWrapper.classList.remove('hidden');
+                if (appSettings.qrKepsekImage) {
+                    qrCanvasEl.classList.add('hidden');
+                    qrUploadedBox.classList.remove('hidden');
+                } else {
+                    qrCanvasEl.classList.remove('hidden');
+                    qrUploadedBox.classList.add('hidden');
+                    renderQRCode(nomor, perihal || judulSurat, tanggalFormatted, kepsekNama, qrSizePx);
+                }
+                ttdStempelWrapper.classList.remove('hidden');
+                ttdStempelWrapper.classList.add('ml-2');
+                tteFooter.classList.remove('hidden');
+            } else if (ttdMode === 'ttd_image') {
+                qrWrapper.classList.add('hidden');
+                ttdStempelWrapper.classList.remove('hidden');
+                ttdStempelWrapper.classList.remove('ml-2');
+                tteFooter.classList.add('hidden');
+            } else {
+                // manual
+                qrWrapper.classList.add('hidden');
+                ttdStempelWrapper.classList.add('hidden');
+                tteFooter.classList.add('hidden');
+            }
+        }
+
+        function renderQRCode(nomor, perihal, tanggal, kepsek, sizePx = 72, customText = null) {
+            const container = document.getElementById('qrcode-canvas');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const qrPayload = customText || [
+                `DOKUMEN SAH - SD NEGERI SEGANTENG`,
+                `Kode: ${currentVerificationCode}`,
+                `No: ${nomor}`,
+                `Hal: ${perihal}`,
+                `Tgl: ${tanggal}`,
+                `TTD: ${kepsek}`
+            ].join('\n');
+
+            try {
+                new QRCode(container, {
+                    text: qrPayload,
+                    width: sizePx,
+                    height: sizePx,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch (e) {
+                console.error('QR render error:', e);
+            }
+        }
+
+        // --- 9. BUKU AGENDA (SIMPAN, EDIT, HAPUS, SURAT MASUK) ---
+        function loadAgenda() {
+            const saved = localStorage.getItem(STORAGE_KEYS.AGENDA);
+            if (saved) {
+                try {
+                    agendaList = JSON.parse(saved);
+                } catch (e) {
+                    agendaList = [];
+                }
+            }
+        }
+
+        function persistAgenda() {
+            localStorage.setItem(STORAGE_KEYS.AGENDA, JSON.stringify(agendaList));
+            renderAgendaTable();
+        }
+
+        function saveSuratToAgenda() {
+            const ttdMode = document.querySelector('input[name="ttd_mode"]:checked')?.value || 'qr_only';
+            const formatHeader = document.getElementById('input-format-header').value;
+            const perihalVal = formatHeader === 'judul_tengah'
+                ? document.getElementById('input-judul-surat').value
+                : document.getElementById('input-perihal').value;
+
+            const record = {
+                id: editingSuratId || ('SURAT-' + Date.now()),
+                jenis: 'KELUAR',
+                kategori: document.getElementById('template-selector').value,
+                formatHeader: formatHeader,
+                judulSurat: document.getElementById('input-judul-surat').value,
+                nomor: document.getElementById('input-nomor').value,
+                lampiran: document.getElementById('input-lampiran').value,
+                perihal: perihalVal,
+                tujuan: document.getElementById('input-tujuan').value,
+                tempatTujuan: document.getElementById('input-tempat-tujuan').value,
+                pembuka: document.getElementById('input-pembuka').value,
+                penutup: document.getElementById('input-penutup').value,
+                tempatSurat: document.getElementById('input-tempat-surat').value,
+                tanggal: document.getElementById('input-tanggal-surat').value,
+                kepsekNama: document.getElementById('input-kepsek-nama').value,
+                kepsekNip: document.getElementById('input-kepsek-nip').value,
+                ttdMode: ttdMode,
+                verificationCode: currentVerificationCode,
+                paperSize: currentPaperSize,
+                detailRows: JSON.parse(JSON.stringify(detailRows)),
+                useTable: document.getElementById('toggle-tabel-data').checked,
+                tableHeaders: [
+                    document.getElementById('th-col-1').value,
+                    document.getElementById('th-col-2').value,
+                    document.getElementById('th-col-3').value
+                ],
+                tableRows: JSON.parse(JSON.stringify(tableRows)),
+                createdAt: new Date().toISOString()
+            };
+
+            if (editingSuratId) {
+                const idx = agendaList.findIndex(item => item.id === editingSuratId);
+                if (idx !== -1) agendaList[idx] = record;
+                showToast('Perubahan surat berhasil diperbarui di Buku Agenda!', 'success');
+            } else {
+                agendaList.unshift(record);
+                editingSuratId = record.id;
+                document.getElementById('btn-save-label').textContent = 'Perbarui di Agenda';
+                showToast('Surat berhasil disimpan ke Buku Agenda & siap diverifikasi!', 'success');
+            }
+
+            persistAgenda();
+        }
+
+        function editSuratFromAgenda(id) {
+            const item = agendaList.find(s => s.id === id);
+            if (!item || item.jenis !== 'KELUAR') return;
+
+            editingSuratId = item.id;
+            document.getElementById('btn-save-label').textContent = 'Perbarui di Agenda';
+
+            document.getElementById('template-selector').value = item.kategori || 'custom';
+            document.getElementById('input-format-header').value = item.formatHeader || 'formal';
+            document.getElementById('input-judul-surat').value = item.judulSurat || 'SURAT KETERANGAN';
+            document.getElementById('input-nomor').value = item.nomor || '';
+            document.getElementById('input-lampiran').value = item.lampiran || '-';
+            document.getElementById('input-perihal').value = item.perihal || '';
+            document.getElementById('input-tujuan').value = item.tujuan || '';
+            document.getElementById('input-tempat-tujuan').value = item.tempatTujuan || 'Tempat';
+            document.getElementById('input-pembuka').value = item.pembuka || '';
+            document.getElementById('input-penutup').value = item.penutup || '';
+            document.getElementById('input-tempat-surat').value = item.tempatSurat || 'Seganteng';
+            document.getElementById('input-tanggal-surat').value = item.tanggal || '';
+            document.getElementById('input-kepsek-nama').value = item.kepsekNama || appSettings.kepsekNama;
+            document.getElementById('input-kepsek-nip').value = item.kepsekNip || appSettings.kepsekNip;
+
+            currentVerificationCode = item.verificationCode || currentVerificationCode;
+            document.getElementById('display-kode-verifikasi').textContent = currentVerificationCode;
+
+            const radio = document.querySelector(`input[name="ttd_mode"][value="${item.ttdMode || 'qr_only'}"]`);
+            if (radio) radio.checked = true;
+
+            setPaperSize(item.paperSize || 'A4');
+
+            detailRows = item.detailRows ? JSON.parse(JSON.stringify(item.detailRows)) : [];
+            renderDetailRowsEditor();
+
+            document.getElementById('toggle-tabel-data').checked = !!item.useTable;
+            if (item.tableHeaders) {
+                document.getElementById('th-col-1').value = item.tableHeaders[0] || 'Nama';
+                document.getElementById('th-col-2').value = item.tableHeaders[1] || 'NIP / NISN';
+                document.getElementById('th-col-3').value = item.tableHeaders[2] || 'Keterangan';
+            }
+            tableRows = item.tableRows ? JSON.parse(JSON.stringify(item.tableRows)) : [];
+            renderTableRowsEditor();
+
+            updatePreview();
+            switchTab('buat-surat');
+            showToast('Surat dimuat ke editor. Silakan ubah atau cetak ulang.', 'info');
+        }
+
+        function reprintSuratFromAgenda(id) {
+            editSuratFromAgenda(id);
+            setTimeout(() => {
+                printDokumen();
+            }, 350);
+        }
+
+        function downloadWordFromAgenda(id) {
+            editSuratFromAgenda(id);
+            setTimeout(() => {
+                downloadSuratWord();
+            }, 350);
+        }
+
+        function deleteAgendaItem(id) {
+            agendaList = agendaList.filter(item => item.id !== id);
+            if (editingSuratId === id) {
+                editingSuratId = null;
+                document.getElementById('btn-save-label').textContent = 'Simpan ke Agenda';
+            }
+            persistAgenda();
+            showToast('Arsip surat telah dihapus dari agenda.', 'info');
+        }
+
+        // Modal Surat Masuk
+        function openModalSuratMasuk() {
+            document.getElementById('modal-surat-masuk').classList.remove('hidden');
+        }
+        function closeModalSuratMasuk() {
+            document.getElementById('modal-surat-masuk').classList.add('hidden');
+        }
+        function saveSuratMasuk() {
+            const nomor = document.getElementById('sm-nomor').value.trim();
+            const tanggal = document.getElementById('sm-tanggal').value;
+            const pengirim = document.getElementById('sm-pengirim').value.trim();
+            const perihal = document.getElementById('sm-perihal').value.trim();
+            const disposisi = document.getElementById('sm-disposisi').value.trim();
+
+            if (!nomor || !perihal) {
+                showToast('Nomor surat dan perihal wajib diisi!', 'error');
+                return;
+            }
+
+            agendaList.unshift({
+                id: 'SM-' + Date.now(),
+                jenis: 'MASUK',
+                kategori: 'masuk',
+                nomor: nomor,
+                tanggal: tanggal,
+                tujuan: pengirim || 'Instansi Luar',
+                perihal: perihal,
+                disposisi: disposisi || '-',
+                ttdMode: 'masuk',
+                verificationCode: '-'
+            });
+
+            persistAgenda();
+            closeModalSuratMasuk();
+            document.getElementById('sm-nomor').value = '';
+            document.getElementById('sm-pengirim').value = '';
+            document.getElementById('sm-perihal').value = '';
+            document.getElementById('sm-disposisi').value = '';
+            showToast('Surat masuk berhasil dicatat ke Buku Agenda!', 'success');
+        }
+
+        function renderAgendaTable() {
+            const search = (document.getElementById('search-agenda')?.value || '').toLowerCase();
+            const filterJenis = document.getElementById('filter-jenis-agenda')?.value || 'ALL';
+            const filterKategori = document.getElementById('filter-kategori-agenda')?.value || 'ALL';
+
+            // Update Statistik
+            const countKeluar = agendaList.filter(i => i.jenis === 'KELUAR').length;
+            const countMasuk = agendaList.filter(i => i.jenis === 'MASUK').length;
+            const countTTE = agendaList.filter(i => i.jenis === 'KELUAR' && ['qr_only', 'qr_kepsek_upload', 'qr_custom_text', 'qr_plus_ttd'].includes(i.ttdMode)).length;
+
+            document.getElementById('stat-surat-keluar').textContent = countKeluar;
+            document.getElementById('stat-surat-masuk').textContent = countMasuk;
+            document.getElementById('stat-surat-tte').textContent = countTTE;
+            document.getElementById('badge-total-surat').textContent = agendaList.length;
+
+            const filtered = agendaList.filter(item => {
+                const matchJenis = filterJenis === 'ALL' || item.jenis === filterJenis;
+                const matchKat = filterKategori === 'ALL' || item.kategori === filterKategori;
+                const text = `${item.nomor} ${item.perihal} ${item.tujuan} ${item.verificationCode}`.toLowerCase();
+                const matchSearch = !search || text.includes(search);
+                return matchJenis && matchKat && matchSearch;
+            });
+
+            const tbody = document.getElementById('agenda-table-body');
+            if (!tbody) return;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-10 text-center text-slate-400">
+                            <i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>
+                            <span class="text-sm">Belum ada arsip surat yang sesuai filter.</span>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(item => {
+                const isKeluar = item.jenis === 'KELUAR';
+                const badgeJenis = isKeluar
+                    ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800"><i class="fa-solid fa-arrow-up-right-from-square"></i> Keluar</span>`
+                    : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800"><i class="fa-solid fa-arrow-down-left"></i> Masuk</span>`;
+
+                const badgeTTE = isKeluar && ['qr_only', 'qr_kepsek_upload', 'qr_custom_text', 'qr_plus_ttd'].includes(item.ttdMode)
+                    ? `<span class="inline-flex items-center gap-1 text-xs font-mono font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg"><i class="fa-solid fa-qrcode"></i> ${escapeHtml(item.verificationCode)}</span>`
+                    : `<span class="text-xs text-slate-500">${isKeluar ? 'TTD Manual/Gambar' : 'Disposisi: ' + escapeHtml(item.disposisi || '-')}</span>`;
+
+                const actions = isKeluar
+                    ? `
+                        <button onclick="editSuratFromAgenda('${item.id}')" title="Edit Surat" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="downloadWordFromAgenda('${item.id}')" title="Download Word (.doc)" class="p-1.5 text-indigo-700 hover:bg-indigo-50 rounded-lg transition"><i class="fa-solid fa-file-word"></i></button>
+                        <button onclick="reprintSuratFromAgenda('${item.id}')" title="Cetak Ulang" class="p-1.5 text-slate-700 hover:bg-slate-100 rounded-lg transition"><i class="fa-solid fa-print"></i></button>
+                        <button onclick="deleteAgendaItem('${item.id}')" title="Hapus" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
+                    `
+                    : `
+                        <button onclick="deleteAgendaItem('${item.id}')" title="Hapus" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
+                    `;
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3 px-4 align-top">${badgeJenis}</td>
+                        <td class="py-3 px-4 align-top">
+                            <div class="font-semibold text-slate-900 text-xs sm:text-sm">${escapeHtml(item.nomor)}</div>
+                            <div class="text-xs text-slate-500">${formatTanggalIndonesia(item.tanggal)}</div>
+                        </td>
+                        <td class="py-3 px-4 align-top font-medium text-slate-800">${escapeHtml(item.perihal)}</td>
+                        <td class="py-3 px-4 align-top text-xs text-slate-600 max-w-[220px] truncate">${escapeHtml(item.tujuan)}</td>
+                        <td class="py-3 px-4 align-top">${badgeTTE}</td>
+                        <td class="py-3 px-4 align-top text-right whitespace-nowrap">${actions}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- 10. EKSPOR & IMPOR EXCEL / JSON ---
+        function exportAgendaExcel() {
+            if (agendaList.length === 0) {
+                showToast('Belum ada data surat di Buku Agenda untuk diekspor.', 'error');
+                return;
+            }
+            const rows = agendaList.map((item, idx) => ({
+                'No': idx + 1,
+                'Jenis Surat': item.jenis,
+                'Nomor Surat': item.nomor,
+                'Tanggal Surat': item.tanggal,
+                'Perihal': item.perihal,
+                'Tujuan / Pengirim': item.tujuan,
+                'Kode Verifikasi TTE': item.verificationCode || '-',
+                'Penandatangan': item.kepsekNama || '-'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Agenda_Surat_SDN_Seganteng');
+            XLSX.writeFile(wb, `Buku_Agenda_Surat_SDN_Seganteng_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Rekap Buku Agenda berhasil diekspor ke Excel!', 'success');
+        }
+
+        function importAgendaFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext === 'json') {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const imported = JSON.parse(e.target.result);
+                        if (Array.isArray(imported)) {
+                            agendaList = [...imported, ...agendaList];
+                            persistAgenda();
+                            showToast(`Berhasil mengimpor ${imported.length} arsip surat JSON.`, 'success');
+                        }
+                    } catch (err) {
+                        showToast('Format file JSON tidak valid.', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonRows = XLSX.utils.sheet_to_json(firstSheet);
+
+                        const mapped = jsonRows.map((r, i) => ({
+                            id: 'IMP-' + Date.now() + '-' + i,
+                            jenis: (r['Jenis Surat'] || 'KELUAR').toString().toUpperCase().includes('MASUK') ? 'MASUK' : 'KELUAR',
+                            kategori: 'custom',
+                            nomor: r['Nomor Surat'] || '-',
+                            tanggal: r['Tanggal Surat'] || new Date().toISOString().split('T')[0],
+                            perihal: r['Perihal'] || 'Arsip Impor',
+                            tujuan: r['Tujuan / Pengirim'] || '-',
+                            verificationCode: r['Kode Verifikasi TTE'] || '-',
+                            kepsekNama: r['Penandatangan'] || appSettings.kepsekNama,
+                            ttdMode: 'manual'
+                        }));
+
+                        agendaList = [...mapped, ...agendaList];
+                        persistAgenda();
+                        showToast(`Berhasil mengimpor ${mapped.length} baris data agenda dari Excel/CSV.`, 'success');
+                    } catch (err) {
+                        showToast('Gagal membaca file Excel/CSV.', 'error');
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+            event.target.value = '';
+        }
+
+        // --- 11. CEK KEASLIAN SURAT (VERIFIKASI QR) ---
+        function verifyDocumentCode() {
+            const codeInput = document.getElementById('input-cek-kode').value.trim().toUpperCase();
+            const resultBox = document.getElementById('verification-result-box');
+
+            if (!codeInput) {
+                showToast('Silakan masukkan kode verifikasi terlebih dahulu.', 'error');
+                return;
+            }
+
+            // Cek di arsip agenda atau dokumen yang sedang aktif di editor
+            let found = agendaList.find(item => (item.verificationCode || '').toUpperCase() === codeInput);
+
+            if (!found && currentVerificationCode.toUpperCase() === codeInput) {
+                found = {
+                    nomor: document.getElementById('input-nomor').value,
+                    perihal: document.getElementById('input-perihal').value || document.getElementById('input-judul-surat').value,
+                    tanggal: document.getElementById('input-tanggal-surat').value,
+                    tujuan: document.getElementById('input-tujuan').value,
+                    kepsekNama: document.getElementById('input-kepsek-nama').value,
+                    kepsekNip: document.getElementById('input-kepsek-nip').value,
+                    verificationCode: currentVerificationCode
+                };
+            }
+
+            resultBox.classList.remove('hidden');
+
+            if (found) {
+                resultBox.innerHTML = `
+                    <div class="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center text-2xl shadow">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-emerald-700">Dokumen Terverifikasi & Sah</div>
+                                <h3 class="text-lg font-bold text-slate-900">SD NEGERI SEGANTENG</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-4 border border-emerald-200 text-sm space-y-2">
+                            <div class="flex justify-between border-b border-slate-100 pb-1.5">
+                                <span class="text-slate-500">Kode Verifikasi</span>
+                                <span class="font-mono font-bold text-blue-700">${escapeHtml(found.verificationCode)}</span>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-100 pb-1.5">
+                                <span class="text-slate-500">Nomor Surat</span>
+                                <span class="font-semibold text-slate-900">${escapeHtml(found.nomor)}</span>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-100 pb-1.5">
+                                <span class="text-slate-500">Perihal</span>
+                                <span class="font-semibold text-slate-900 text-right">${escapeHtml(found.perihal)}</span>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-100 pb-1.5">
+                                <span class="text-slate-500">Tanggal Ditetapkan</span>
+                                <span class="font-medium text-slate-800">${formatTanggalIndonesia(found.tanggal)}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Penandatangan Sah</span>
+                                <span class="font-bold text-slate-900">${escapeHtml(found.kepsekNama || appSettings.kepsekNama)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultBox.innerHTML = `
+                    <div class="bg-rose-50 border border-rose-300 rounded-2xl p-5 flex items-start gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-rose-600 text-2xl mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-rose-900 text-sm">Kode Verifikasi Tidak Ditemukan</h4>
+                            <p class="text-xs text-rose-700 mt-1">Kode <strong>${escapeHtml(codeInput)}</strong> tidak tercatat dalam arsip persuratan SD Negeri Seganteng. Pastikan surat telah disimpan ke Buku Agenda atau periksa kembali penulisan kode.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // --- 12. NAVIGASI TAB, CETAK & UTILITAS ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = 'nav-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/60 whitespace-nowrap';
+            });
+            const activeBtn = document.getElementById(`nav-${tabName}`);
+            if (activeBtn) {
+                activeBtn.className = 'nav-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-2 bg-blue-600 text-white shadow-sm whitespace-nowrap';
+            }
+
+            if (tabName === 'agenda') renderAgendaTable();
+        }
+
+        function printDokumen() {
+            window.print();
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // --- 13. EKSPOR DOKUMEN KE MICROSOFT WORD (.DOC) ---
+        function imageSourceToPngDataUrl(src, width = 160, height = 160) {
+            return new Promise((resolve) => {
+                if (!src) {
+                    resolve('');
+                    return;
+                }
+                if (src.startsWith('data:image/png') || src.startsWith('data:image/jpeg')) {
+                    resolve(src);
+                    return;
+                }
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/png'));
+                    } catch (e) {
+                        resolve(src);
+                    }
+                };
+                img.onerror = () => resolve('');
+                img.src = src;
+            });
+        }
+
+        function getActiveQrDataUrl() {
+            const ttdMode = document.querySelector('input[name="ttd_mode"]:checked')?.value || 'qr_only';
+            if (ttdMode === 'qr_kepsek_upload' && appSettings.qrKepsekImage) {
+                return appSettings.qrKepsekImage;
+            }
+            if (ttdMode === 'qr_plus_ttd' && appSettings.qrKepsekImage) {
+                return appSettings.qrKepsekImage;
+            }
+            const qrCanvas = document.querySelector('#qrcode-canvas canvas');
+            if (qrCanvas) {
+                try {
+                    return qrCanvas.toDataURL('image/png');
+                } catch (e) {
+                    return '';
+                }
+            }
+            const qrImg = document.querySelector('#qrcode-canvas img');
+            return qrImg ? qrImg.src : '';
+        }
+
+        async function downloadSuratWord() {
+            showToast('Menyiapkan file Microsoft Word (.doc)...', 'info');
+
+            const logoKiriPng = await imageSourceToPngDataUrl(appSettings.logoKiri || DEFAULT_LOGO_KIRI_SVG, 150, 175);
+            const logoKananPng = await imageSourceToPngDataUrl(appSettings.logoKanan || DEFAULT_LOGO_KANAN_SVG, 150, 175);
+            const ttdPng = appSettings.ttdImage ? await imageSourceToPngDataUrl(appSettings.ttdImage, 260, 110) : '';
+            const stempelPng = appSettings.stempelImage ? await imageSourceToPngDataUrl(appSettings.stempelImage, 150, 150) : '';
+
+            const formatHeader = document.getElementById('input-format-header').value;
+            const judulSurat = document.getElementById('input-judul-surat').value.toUpperCase();
+            const nomor = document.getElementById('input-nomor').value;
+            const lampiran = document.getElementById('input-lampiran').value;
+            const perihal = document.getElementById('input-perihal').value;
+            const tujuan = document.getElementById('input-tujuan').value;
+            const tempatTujuan = document.getElementById('input-tempat-tujuan').value;
+            const pembuka = document.getElementById('input-pembuka').value;
+            const penutup = document.getElementById('input-penutup').value;
+            const tempatSurat = document.getElementById('input-tempat-surat').value;
+            const tanggalFormatted = formatTanggalIndonesia(document.getElementById('input-tanggal-surat').value);
+            const kepsekNama = document.getElementById('input-kepsek-nama').value;
+            const kepsekNip = document.getElementById('input-kepsek-nip').value;
+
+            const ttdMode = document.querySelector('input[name="ttd_mode"]:checked')?.value || 'qr_only';
+            const isQrMode = ['qr_only', 'qr_kepsek_upload', 'qr_custom_text', 'qr_plus_ttd'].includes(ttdMode);
+            const qrSizePx = parseInt(document.getElementById('input-qr-size')?.value || appSettings.qrSize || 72, 10);
+            const qrCaption = document.getElementById('input-qr-caption')?.value || 'Ditandatangani secara elektronik oleh:';
+            const qrPng = isQrMode ? await imageSourceToPngDataUrl(getActiveQrDataUrl(), 200, 200) : '';
+
+            // Ukuran Halaman Word (A4 vs F4)
+            const pageDimensionCss = currentPaperSize === 'F4'
+                ? 'size: 21.5cm 33.0cm; margin: 1.4cm 1.8cm 1.5cm 2.0cm;'
+                : 'size: 21.0cm 29.7cm; margin: 1.4cm 1.8cm 1.5cm 2.0cm;';
+
+            // Blok Header Surat (Formal vs Judul Tengah)
+            let headerSuratHtml = '';
+            if (formatHeader === 'judul_tengah') {
+                headerSuratHtml = `
+                    <div style="text-align: center; margin-top: 10pt; margin-bottom: 12pt;">
+                        <div style="font-size: 13.5pt; font-weight: bold; text-decoration: underline; letter-spacing: 0.5pt;">${escapeHtml(judulSurat)}</div>
+                        <div style="font-size: 12pt; margin-top: 2pt;">Nomor : ${escapeHtml(nomor)}</div>
+                    </div>
+                `;
+            } else {
+                const tujuanHtml = escapeHtml(tujuan).replace(/\n/g, '<br>');
+                headerSuratHtml = `
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12pt; line-height: 1.35; margin-top: 6pt; margin-bottom: 10pt;">
+                        <tr>
+                            <td style="width: 58%; vertical-align: top;">
+                                <table style="border-collapse: collapse; font-size: 12pt;">
+                                    <tr>
+                                        <td style="width: 68pt; vertical-align: top;">Nomor</td>
+                                        <td style="width: 10pt; vertical-align: top;">:</td>
+                                        <td style="vertical-align: top;">${escapeHtml(nomor)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="vertical-align: top;">Lampiran</td>
+                                        <td style="vertical-align: top;">:</td>
+                                        <td style="vertical-align: top;">${escapeHtml(lampiran)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="vertical-align: top;">Perihal</td>
+                                        <td style="vertical-align: top;">:</td>
+                                        <td style="vertical-align: top; font-weight: bold;">${escapeHtml(perihal)}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                            <td style="width: 42%; vertical-align: top; padding-left: 12pt;">
+                                <div>Kepada</div>
+                                <div>Yth. ${tujuanHtml}</div>
+                                <div>di -</div>
+                                <div style="padding-left: 18pt;">${escapeHtml(tempatTujuan)}</div>
+                            </td>
+                        </tr>
+                    </table>
+                `;
+            }
+
+            // Rincian Key-Value
+            let detailTableHtml = '';
+            const validDetails = detailRows.filter(r => r.label.trim() || r.value.trim());
+            if (validDetails.length > 0) {
+                const rowsHtml = validDetails.map(r => `
+                    <tr>
+                        <td style="width: 145pt; vertical-align: top; padding: 2pt 0;">${escapeHtml(r.label)}</td>
+                        <td style="width: 12pt; vertical-align: top; padding: 2pt 0;">:</td>
+                        <td style="vertical-align: top; padding: 2pt 0;">${escapeHtml(r.value)}</td>
+                    </tr>
+                `).join('');
+                detailTableHtml = `
+                    <table style="border-collapse: collapse; margin: 8pt 0 10pt 28pt; width: 92%; font-size: 12pt; line-height: 1.4;">
+                        ${rowsHtml}
+                    </table>
+                `;
+            }
+
+            // Tabel Daftar Opsional
+            let dataTableHtml = '';
+            if (document.getElementById('toggle-tabel-data').checked && tableRows.length > 0) {
+                const th1 = escapeHtml(document.getElementById('th-col-1').value);
+                const th2 = escapeHtml(document.getElementById('th-col-2').value);
+                const th3 = escapeHtml(document.getElementById('th-col-3').value);
+                const bodyRows = tableRows.map((r, i) => `
+                    <tr>
+                        <td style="border: 1pt solid #000000; padding: 4pt 6pt; text-align: center;">${i + 1}</td>
+                        <td style="border: 1pt solid #000000; padding: 4pt 6pt;">${escapeHtml(r.col1)}</td>
+                        <td style="border: 1pt solid #000000; padding: 4pt 6pt;">${escapeHtml(r.col2)}</td>
+                        <td style="border: 1pt solid #000000; padding: 4pt 6pt;">${escapeHtml(r.col3)}</td>
+                    </tr>
+                `).join('');
+                dataTableHtml = `
+                    <table style="width: 100%; border-collapse: collapse; margin: 8pt 0 10pt 0; font-size: 11.5pt;">
+                        <thead>
+                            <tr style="background-color: #f3f4f6;">
+                                <th style="border: 1pt solid #000000; padding: 5pt; width: 32pt; text-align: center;">No.</th>
+                                <th style="border: 1pt solid #000000; padding: 5pt; text-align: center;">${th1}</th>
+                                <th style="border: 1pt solid #000000; padding: 5pt; text-align: center;">${th2}</th>
+                                <th style="border: 1pt solid #000000; padding: 5pt; text-align: center;">${th3}</th>
+                            </tr>
+                        </thead>
+                        <tbody>${bodyRows}</tbody>
+                    </table>
+                `;
+            }
+
+            // Bagian Tanda Tangan / QR Code Kepala Sekolah untuk Word
+            let signatureVisualHtml = `<div style="height: 58pt;"></div>`;
+            if (isQrMode && qrPng) {
+                const extraTtdHtml = (ttdMode === 'qr_plus_ttd' && ttdPng)
+                    ? `<td style="vertical-align: middle; padding-left: 6pt;"><img src="${ttdPng}" width="110" height="52" style="width: 110px; height: 52px;"></td>`
+                    : '';
+                signatureVisualHtml = `
+                    <table style="border-collapse: collapse; margin: 5pt 0;">
+                        <tr>
+                            <td style="vertical-align: middle; padding: 2pt; border: 0.75pt solid #cbd5e1;">
+                                <img src="${qrPng}" width="${qrSizePx}" height="${qrSizePx}" style="width: ${qrSizePx}px; height: ${qrSizePx}px;">
+                            </td>
+                            <td style="vertical-align: middle; padding-left: 6pt; font-family: Arial, sans-serif; font-size: 7.5pt; line-height: 1.25; color: #1e293b;">
+                                <div style="font-weight: bold; color: #1e3a8a;">${escapeHtml(qrCaption)}</div>
+                                <div>Kepala SD Negeri Seganteng</div>
+                                <div style="font-family: 'Courier New', monospace; font-size: 7pt; color: #475569;">Kode: ${escapeHtml(currentVerificationCode)}</div>
+                            </td>
+                            ${extraTtdHtml}
+                        </tr>
+                    </table>
+                `;
+            } else if (ttdMode === 'ttd_image' && (ttdPng || stempelPng)) {
+                signatureVisualHtml = `
+                    <table style="border-collapse: collapse; margin: 4pt 0;">
+                        <tr>
+                            ${stempelPng ? `<td style="vertical-align: middle;"><img src="${stempelPng}" width="64" height="64" style="width: 64px; height: 64px;"></td>` : ''}
+                            ${ttdPng ? `<td style="vertical-align: middle;"><img src="${ttdPng}" width="135" height="60" style="width: 135px; height: 60px;"></td>` : ''}
+                        </tr>
+                    </table>
+                `;
+            }
+
+            const tteFooterHtml = isQrMode ? `
+                <div style="margin-top: 24pt; padding-top: 5pt; border-top: 0.75pt solid #cbd5e1; font-family: Arial, sans-serif; font-size: 7.5pt; color: #475569;">
+                    Dokumen ini telah ditandatangani secara elektronik menggunakan sistem E-Surat SD Negeri Seganteng. &nbsp;|&nbsp; <strong>ID: ${escapeHtml(currentVerificationCode)}</strong>
+                </div>
+            ` : '';
+
+            const pembukaHtml = escapeHtml(pembuka).replace(/\n/g, '<br>');
+            const penutupHtml = escapeHtml(penutup).replace(/\n/g, '<br>');
+
+            const wordHtml = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office"
+                      xmlns:w="urn:schemas-microsoft-com:office:word"
+                      xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="utf-8">
+                    <title>${escapeHtml(perihal || judulSurat)}</title>
+                    <style>
+                        @page WordSection1 {
+                            ${pageDimensionCss}
+                        }
+                        div.WordSection1 {
+                            page: WordSection1;
+                            font-family: "Times New Roman", Times, serif;
+                            color: #000000;
+                        }
+                        p {
+                            margin: 0 0 8pt 0;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="WordSection1">
+                        <!-- KOP SURAT RESMI -->
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="width: 62pt; text-align: left; vertical-align: middle;">
+                                    ${logoKiriPng ? `<img src="${logoKiriPng}" width="64" height="74" style="width: 64px; height: 74px;">` : ''}
+                                </td>
+                                <td style="text-align: center; vertical-align: middle; line-height: 1.15;">
+                                    <div style="font-size: 14pt; font-weight: bold;">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
+                                    <div style="font-size: 14pt; font-weight: bold;">DINAS PENDIDIKAN DAN KEBUDAYAAN</div>
+                                    <div style="font-size: 16pt; font-weight: bold;">SEKOLAH DASAR NEGERI SEGANTENG</div>
+                                    <div style="font-size: 10pt; margin-top: 2pt;">Alamat: Jln. Pariwisata Aik Bukaq Kec. Batukliang Utara Kab. Lombok Tengah Kode Pos. 83555</div>
+                                    <div style="font-size: 10pt; font-style: italic; margin-top: 2pt;">
+                                        IG: sdnsegatengofficial &nbsp;|&nbsp; FB: sdnseganteng &nbsp;|&nbsp; Email: <span style="color: #0000FF; text-decoration: underline;">sdnseganteng3@gmail.com</span>
+                                    </div>
+                                </td>
+                                <td style="width: 62pt; text-align: right; vertical-align: middle;">
+                                    ${logoKananPng ? `<img src="${logoKananPng}" width="64" height="74" style="width: 64px; height: 74px;">` : ''}
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Garis Pembatas Ganda -->
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 5pt; margin-bottom: 10pt;">
+                            <tr><td style="border-top: 2.5pt solid #000000; height: 2pt; font-size: 1pt; line-height: 1pt;">&nbsp;</td></tr>
+                            <tr><td style="border-top: 0.75pt solid #000000; height: 1pt; font-size: 1pt; line-height: 1pt;">&nbsp;</td></tr>
+                        </table>
+
+                        ${headerSuratHtml}
+
+                        <!-- Isi Surat -->
+                        <div style="font-size: 12pt; line-height: 1.45; text-align: justify;">
+                            <p style="text-indent: 28pt;">${pembukaHtml}</p>
+                            ${detailTableHtml}
+                            ${dataTableHtml}
+                            <p style="text-indent: 28pt; margin-top: 8pt;">${penutupHtml}</p>
+                        </div>
+
+                        <!-- Blok Pengesahan Kepala Sekolah -->
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 18pt; font-size: 12pt; line-height: 1.3;">
+                            <tr>
+                                <td style="width: 52%;"></td>
+                                <td style="width: 48%; vertical-align: top;">
+                                    <div>${escapeHtml(tempatSurat)}, ${escapeHtml(tanggalFormatted)}</div>
+                                    <div>Kepala Sekolah,</div>
+                                    ${signatureVisualHtml}
+                                    <div style="font-weight: bold; text-decoration: underline;">${escapeHtml(kepsekNama)}</div>
+                                    <div>NIP. ${escapeHtml(kepsekNip)}</div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        ${tteFooterHtml}
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob(['\ufeff', wordHtml], {
+                type: 'application/msword;charset=utf-8'
+            });
+            const safeTitle = (perihal || judulSurat || 'Surat_SDN_Seganteng')
+                .replace(/[^a-zA-Z0-9_\-\s]/g, '')
+                .trim()
+                .replace(/\s+/g, '_');
+            const fileName = `${safeTitle}_${currentPaperSize}.doc`;
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            showToast(`File "${fileName}" berhasil diunduh!`, 'success');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-emerald-600 text-white',
+                error: 'bg-rose-600 text-white',
+                info: 'bg-slate-800 text-white'
+            };
+            const icons = {
+                success: 'fa-circle-check',
+                error: 'fa-circle-exclamation',
+                info: 'fa-circle-info'
+            };
+
+            toast.className = `${colors[type] || colors.info} px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2.5 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i><span>${escapeHtml(message)}</span>`;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+    </script>
+</body>
+</html>
